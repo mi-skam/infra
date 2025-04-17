@@ -1,0 +1,91 @@
+{ inputs, pkgs, osConfig, config, lib, ... }:
+let
+
+  cfg = config.userConfig;
+
+in
+{
+  options.userConfig = {
+    name = lib.mkOption {
+      type = lib.types.str;
+      description = "User name";
+    };
+
+    email = lib.mkOption {
+      type = lib.types.str;
+      description = "User email address";
+    };
+  };
+
+  config = {
+    home.packages = with pkgs;
+      [
+       # core
+       fd
+       file
+       gh
+       jq
+       ripgrep
+       tree
+       unzip
+       wl-clipboard
+
+       man-pages
+      ];
+
+    programs.bash = {
+      enable = true;
+
+      initExtra = ''
+        # Eg: start your session with zsh and run bash, you'll have the wrong SHELL
+        if [[ $(basename "$SHELL") != bash ]]; then
+          SHELL=bash
+        fi
+
+        if [[ "\$$user" = $(id -u -n) ]]; then
+          # Remove \u
+          PS1=$(echo "$PS1" | sed 's|\\u||g')
+        fi
+      '';
+    };
+
+    programs.direnv = {
+      enable = true;
+    };
+
+    programs.fzf.enable = true;
+
+    programs.git = {
+      enable = true;
+      userName = cfg.name;
+      userEmail = cfg.email;
+    };
+
+    programs.htop.enable = true;
+
+    programs.neovim = {
+      enable = true;
+      defaultEditor = true;
+      vimAlias = true;
+    };
+
+    programs.ssh = {
+      enable = true;
+      compression = true;
+    };
+
+    programs.starship = {
+      enable = true;
+      settings = {
+        git_status.disabled = true;
+      };
+    };
+
+    programs.tmux.enable = true;
+
+    # only available on linux, disabled on macos
+    services.ssh-agent.enable = pkgs.stdenv.isLinux;
+
+    home.stateVersion = "24.11"; # initial home-manager state
+    };
+}
