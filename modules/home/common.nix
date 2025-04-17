@@ -72,6 +72,14 @@ in
     programs.ssh = {
       enable = true;
       compression = true;
+      matchBlocks = {
+	"git.adminforge.de" = {
+          user = "git";
+	  port = 222;
+          identityFile = "~/Share/Secrets/.ssh/homelab/homelab";
+	  identitiesOnly = true;
+	};
+      };
     };
 
     programs.starship = {
