@@ -1,4 +1,4 @@
-{...}:
+{pkg, config, lib, ...}:
 {
   users.users.mi-skam = {
     uid = 1000;

@@ -1,8 +1,9 @@
 { inputs, pkgs, osConfig, config, lib, ... }:
+
 let
-
   cfg = config.userConfig;
-
+  isDarwin = pkgs.stdenv.isDarwin;
+  isLinux = pkgs.stdenv.isLinux;
 in
 {
   options.userConfig = {
@@ -15,9 +16,19 @@ in
       type = lib.types.str;
       description = "User email address";
     };
+    gitName = lib.mkOption {
+      type = lib.types.str;
+      description = "Git user name";
+      default = cfg.name;
+    };
   };
 
   config = {
+    # Set the home directory for the user, adjust if on darwin or linux
+    home.homeDirectory = if isDarwin
+      then "/Users/${cfg.name}"
+      else "/home/${cfg.name}";
+
     home.packages = with pkgs;
       [
        # core
@@ -90,6 +101,8 @@ in
     };
 
     programs.tmux.enable = true;
+
+    programs.zoxide.enable = true;
 
     # only available on linux, disabled on macos
     services.ssh-agent.enable = pkgs.stdenv.isLinux;

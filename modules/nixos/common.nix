@@ -1,7 +1,7 @@
 { inputs, ... }:
 {
   imports = [
-    ./mi-skam.nix
+    ../users/mi-skam.nix
     inputs.home-manager.nixosModules.default
     inputs.srvos.nixosModules.common
   ];

@@ -1,11 +1,17 @@
-{ pkgs, inputs, ... }:
+{ config, inputs, pkgs, ... }:
+
 {
+  imports = [
+    inputs.self.darwinModules.desktop
+  ];
 
-  imports = [ inputs.self.nixosModules.host-shared ];
-
+  networking.hostName = "lt-01";
   nixpkgs.hostPlatform = "aarch64-darwin";
 
-  users.users.me.home = /Users/me;
+    nix.settings.trusted-users = [ "plumps" ];
 
-  system.stateVersion = 6; # initial nix-darwin state
+
+  home-manager.users.plumps = {
+    imports = [ inputs.self.homeModules.desktop ];
+  };
 }

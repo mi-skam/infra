@@ -1,25 +1,37 @@
-{pkgs, ...}:
+{ pkgs, ... }:
 
-{
-
+let
+  isDarwin = pkgs.stdenv.isDarwin;
+  isLinux = pkgs.stdenv.isLinux;
+in {
   imports = [
     ./common.nix
   ];
 
   programs = {
-    firefox.enable = true;
-    ghostty.enable = true;
+    firefox.enable = isLinux;
+    ghostty.enable = isLinux;
     vscode.enable = true;
   };
 
-  home.packages = with pkgs; [
-    bitwarden-desktop
-    brave
-    freecad-wayland
-    obsidian
-    signal-desktop
-    spotify-qt
-    kdePackages.kasts
-  ];
-
+  home.packages = with pkgs; 
+    # Common packages for both platforms
+    [
+      brave
+      obsidian
+      signal-desktop
+    ] 
+    # Linux-only packages
+    ++ lib.optionals isLinux [
+      bitwarden-desktop
+      freecad-wayland
+      spotify-qt
+      kdePackages.kasts
+    ]
+    # Darwin-specific packages
+    ++ lib.optionals isDarwin [
+      # Add macOS-specific alternatives if needed
+      # For example, you might want to use the native macOS app for Spotify
+      # instead of spotify-qt
+    ];
 }
