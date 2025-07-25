@@ -56,6 +56,7 @@
             modules = [
               ./modules/home/users/mi-skam.nix
               ./modules/home/desktop.nix
+              ./modules/home/dev.nix
             ];
           };
 
@@ -68,6 +69,7 @@
             modules = [
               ./modules/home/users/plumps.nix
               ./modules/home/desktop.nix
+              ./modules/home/dev.nix
             ];
           };
         };
