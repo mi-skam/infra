@@ -8,12 +8,9 @@
 {
   imports = [
     ./hardware-configuration.nix
-    inputs.srvos.nixosModules.mixins-systemd-boot
 
     ../../modules/nixos/plasma.nix
     ../../modules/nixos/desktop.nix
-
-    inputs.nixos-hardware.nixosModules.msi-gl65-10SDR-492
   ];
 
   # Bootloader.
@@ -25,6 +22,17 @@
   nixpkgs.hostPlatform = "x86_64-linux";
 
   services.printing.enable = true;
+
+  # PipeWire audio configuration
+  services.pipewire = {
+    enable = true;
+    alsa.enable = true;
+    alsa.support32Bit = true;
+    pulse.enable = true;
+  };
+
+  # Enable rtkit for real-time audio scheduling
+  security.rtkit.enable = true;
 
   # This value determines the NixOS release from which the default
   # settings for stateful data, like file locations and database versions

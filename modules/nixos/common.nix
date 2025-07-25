@@ -32,7 +32,8 @@
     LC_TIME = "de_DE.UTF-8";
   };
 
-  programs.bash.completion.enable = true;
+  programs.fish.enable = true;
+  programs.command-not-found.enable = false;
 
   networking.firewall.allowPing = true;
 

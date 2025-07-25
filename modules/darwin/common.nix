@@ -22,8 +22,9 @@
   };
 
   # Shell completion (similar to Bash completion)
-  programs.bash.enable = true;
-  programs.bash.completion.enable = true;
+  programs.fish.enable = true;
+  programs.command-not-found.enable = false;
+
 
   # Darwin-specific system settings
   system.defaults.NSGlobalDomain.AppleShowAllExtensions = true;

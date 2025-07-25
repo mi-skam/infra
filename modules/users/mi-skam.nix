@@ -13,7 +13,7 @@ in
   users.users.${username} = lib.mkMerge [
     {
       uid = 1000;
-      shell = "/run/current-system/sw/bin/bash";
+      shell = pkgs.fish;
       openssh.authorizedKeys.keyFiles = [ ../../secrets/authorized_keys ];
     }
 

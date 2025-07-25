@@ -12,7 +12,7 @@ in
   users.users.plumps = lib.mkMerge [
     {
       uid = 1001;
-      shell = "/run/current-system/sw/bin/bash";
+      shell = pkgs.fish;
       openssh.authorizedKeys.keyFiles = [ ../../secrets/authorized_keys ];
     }
 
