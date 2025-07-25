@@ -28,6 +28,6 @@
 
     shell = "/run/current-system/sw/bin/bash";
 
-    openssh.authorizedKeys.keyFiles = [ ../../authorized_keys ];
+    openssh.authorizedKeys.keyFiles = [ ../../secrets/authorized_keys ];
   };
 }

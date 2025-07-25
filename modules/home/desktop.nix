@@ -14,28 +14,28 @@ in
     ghostty.enable = isLinux;
   };
 
+
   home.packages =
     with pkgs;
-    # Common packages for both platforms
+    # Common packages available in nixpkgs for both platforms
     [
-      brave
+      # Keep packages that work well from nixpkgs on both platforms
       obsidian
-      vivaldi
-      wl-clipboard
-
     ]
-    # Linux-only packages
+    # Linux-only packages (GUI apps via nixpkgs)
     ++ lib.optionals isLinux [
+      brave
+      vivaldi
       bitwarden-desktop
       freecad-wayland
       signal-desktop
       spotify-qt
       kdePackages.kasts
+      wl-clipboard
     ]
-    # Darwin-specific packages
+    # Darwin-specific packages (minimal, most GUI apps via Homebrew casks)
     ++ lib.optionals isDarwin [
-      # Add macOS-specific alternatives if needed
-      # For example, you might want to use the native macOS app for Spotify
-      # instead of spotify-qt
+      # Keep only packages that work better from nixpkgs on Darwin
+      # Most GUI apps are handled by Homebrew casks
     ];
 }

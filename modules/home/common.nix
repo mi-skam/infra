@@ -56,6 +56,7 @@ in
       man-pages
     ];
 
+
     programs.bash = {
       enable = true;
 

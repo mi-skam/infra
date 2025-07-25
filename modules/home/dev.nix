@@ -16,22 +16,11 @@ in
 
   programs = {
     # Development programs
-    git.enable = true;
     gh.enable = true;
-    tmux.enable = true;
-    htop.enable = true;
     direnv.enable = true;
 
     # Language-specific tools
     go.enable = true;
-
-    # Editor configurations
-    neovim = {
-      enable = true;
-      defaultEditor = true;
-      viAlias = true;
-      vimAlias = true;
-    };
 
     # VSCode with GUI extension management
     vscode = {

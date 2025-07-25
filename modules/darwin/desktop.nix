@@ -5,6 +5,27 @@
     ./common.nix
   ];
 
+  # Homebrew configuration for Darwin
+  homebrew = {
+    enable = true;
+    
+    # CLI tools that work better or are only available via Homebrew
+    brews = [
+      # Add any CLI tools you need from Homebrew that aren't in nixpkgs
+      # or work better from Homebrew on macOS
+    ];
+    
+    # GUI applications via casks
+    casks = [
+      "firefox"
+      "bitwarden"
+      "signal"
+      "spotify"
+      "discord"
+      "docker"
+    ];
+  };
+
   # Darwin-specific desktop environment
   environment.systemPackages = with pkgs; [
     pciutils

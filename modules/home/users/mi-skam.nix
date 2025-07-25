@@ -2,7 +2,6 @@
 {
   home = {
     username = "mi-skam";
-    homeDirectory = "/home/mi-skam";
     stateVersion = "25.05";
   };
 
