@@ -1,4 +1,9 @@
-{ config, inputs, pkgs, ... }:
+{
+  config,
+  inputs,
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -8,7 +13,6 @@
   networking.hostName = "xbook";
   nixpkgs.hostPlatform = "aarch64-darwin";
 
-    nix.settings.trusted-users = [ "plumps" ];
-
+  nix.settings.trusted-users = [ "plumps" ];
 
 }

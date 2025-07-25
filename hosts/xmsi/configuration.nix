@@ -1,16 +1,20 @@
-{ config, inputs, pkgs, ... }:
+{
+  config,
+  inputs,
+  pkgs,
+  ...
+}:
 
 {
-  imports =
-    [
-      ./hardware-configuration.nix
-      inputs.srvos.nixosModules.mixins-systemd-boot
+  imports = [
+    ./hardware-configuration.nix
+    inputs.srvos.nixosModules.mixins-systemd-boot
 
-      ../../modules/nixos/plasma.nix
-      ../../modules/nixos/desktop.nix
+    ../../modules/nixos/plasma.nix
+    ../../modules/nixos/desktop.nix
 
-      inputs.nixos-hardware.nixosModules.msi-gl65-10SDR-492
-    ];
+    inputs.nixos-hardware.nixosModules.msi-gl65-10SDR-492
+  ];
 
   # Bootloader.
   boot.loader.systemd-boot.enable = true;
@@ -19,7 +23,6 @@
   networking.hostName = "xmsi"; # Define your hostname.
 
   nixpkgs.hostPlatform = "x86_64-linux";
-
 
   services.printing.enable = true;
 

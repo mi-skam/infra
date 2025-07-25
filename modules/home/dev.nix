@@ -1,9 +1,15 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
   isDarwin = pkgs.stdenv.isDarwin;
   isLinux = pkgs.stdenv.isLinux;
-in {
+in
+{
   imports = [
     ./common.nix
   ];
@@ -15,10 +21,10 @@ in {
     tmux.enable = true;
     htop.enable = true;
     direnv.enable = true;
-    
+
     # Language-specific tools
     go.enable = true;
-    
+
     # Editor configurations
     neovim = {
       enable = true;
@@ -26,86 +32,56 @@ in {
       viAlias = true;
       vimAlias = true;
     };
-    
+
     # VSCode with GUI extension management
     vscode = {
       enable = true;
       # Use profiles structure (modern home-manager)
       profiles.default = {
         # Don't manage extensions through Nix - allows GUI installation
-        extensions = [];
+        extensions = [ ];
         # User settings can be managed here if desired, but empty allows GUI management
-        userSettings = {};
+        userSettings = { };
       };
     };
   };
 
-  home.packages = with pkgs; 
+  home.packages =
+    with pkgs;
     # Common development packages for both platforms
     [
       # Version control
       git-lfs
       lazygit
       tig
-      
+
       # Build tools
       gnumake
-      cmake
-      ninja
-      
+      just
+
       # Languages and runtimes
       nodejs_22
       python3
-      rustup
-      
-      # Development utilities
-      jq
-      yq-go
-      tree
-      fd
-      ripgrep
-      bat
-      eza
-      zoxide
-      fzf
-      
-      # Network tools
-      curl
-      wget
-      httpie
-      
+
+      # Nix development tools
+      nixfmt-rfc-style
+
       # Container tools
       docker-compose
-      
-      # Text processing
-      sd
-      
-      # Monitoring
-      btop
-      
-      # File tools
-      file
-      unzip
-      zip
-    ] 
+
+    ]
     # Linux-only packages
     ++ lib.optionals isLinux [
-      # Docker (full engine on Linux)
-      docker
-      
+
       # System tools
       strace
       ltrace
       lsof
-      
-      # Development tools
-      gdb
-      valgrind
-      
+
       # Networking
       netcat-gnu
       nmap
-      
+
       # Performance tools
       perf-tools
     ]
@@ -113,49 +89,23 @@ in {
     ++ lib.optionals isDarwin [
       # macOS alternatives and specific tools
       # Docker Desktop is typically installed via homebrew/manually on macOS
-      
+
       # System tools
       fswatch
-      
+
       # Networking
       netcat
-      
+
       # macOS-specific development tools
-      mas  # Mac App Store CLI
+      mas # Mac App Store CLI
     ];
+
+  # Home session path for global npm packages
+  # This allows global npm packages to be available in the user's PATH
+  home.sessionPath = [ "${config.home.homeDirectory}/.npm-global/bin" ];
 
   # Development-specific environment variables
   home.sessionVariables = {
-    EDITOR = "nvim";
-    PAGER = "bat";
-    BAT_THEME = "base16";
-  };
-
-  # Shell aliases for development
-  home.shellAliases = {
-    ll = "eza -la";
-    ls = "eza";
-    cat = "bat";
-    find = "fd";
-    grep = "rg";
-    cd = "z";  # zoxide
-    
-    # Git shortcuts
-    g = "git";
-    gs = "git status";
-    ga = "git add";
-    gc = "git commit";
-    gp = "git push";
-    gl = "git log --oneline";
-    gd = "git diff";
-    
-    # Development shortcuts
-    v = "nvim";
-    vim = "nvim";
-    
-    # Quick directory navigation
-    ".." = "cd ..";
-    "..." = "cd ../..";
-    "...." = "cd ../../..";
+    NPM_CONFIG_PREFIX = "${config.home.homeDirectory}/.npm-global";
   };
 }

@@ -18,9 +18,13 @@
     srvos.inputs.nixpkgs.follows = "nixpkgs";
   };
 
-  outputs = inputs@{ flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
-      systems = [ "x86_64-linux" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
 
       flake = {
         # NixOS configurations
@@ -75,8 +79,17 @@
         };
       };
 
-      perSystem = { config, self', inputs', pkgs, system, ... }: {
-        devShells.default = import ./devshell.nix { inherit pkgs; };
-      };
+      perSystem =
+        {
+          config,
+          self',
+          inputs',
+          pkgs,
+          system,
+          ...
+        }:
+        {
+          devShells.default = import ./devshell.nix { inherit pkgs; };
+        };
     };
 }

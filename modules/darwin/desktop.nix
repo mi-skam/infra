@@ -26,7 +26,7 @@
     mru-spaces = false;
     minimize-to-application = true;
   };
-  
+
   # Darwin-specific window management
   services.yabai = {
     enable = false; # Set to true to enable tiling window manager
@@ -41,7 +41,7 @@
       right_padding = 8;
     };
   };
-  
+
   # Keyboard shortcuts (similar to keyd functionality)
   services.skhd = {
     enable = false; # Set to true if you want keyboard shortcuts

@@ -10,4 +10,4 @@ git clone ssh://git@git.adminforge.de:222/maksim/infrastructure.git
 cd infrastructure
 # rebuild the system
 sudo nixos-rebuild switch --flake .#`hostname`
-```
+```474587474587

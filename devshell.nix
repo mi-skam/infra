@@ -2,23 +2,28 @@
 let
   isDarwin = pkgs.stdenv.isDarwin;
   isLinux = pkgs.stdenv.isLinux;
-  
+
   # Cross-platform packages
   commonPackages = with pkgs; [
-    nixos-rebuild  # Works on both platforms for managing NixOS configs
+    nixos-rebuild # Works on both platforms for managing NixOS configs
     home-manager
     git
     direnv
+    nodejs_22 # For npm global package management
   ];
-  
+
   # Platform-specific packages
-  darwinPackages = with pkgs; lib.optionals isDarwin [
-    darwin-rebuild
-  ];
-  
-  linuxPackages = with pkgs; lib.optionals isLinux [
-    # nixos-rebuild is already included in commonPackages
-  ];
+  darwinPackages =
+    with pkgs;
+    lib.optionals isDarwin [
+      darwin-rebuild
+    ];
+
+  linuxPackages =
+    with pkgs;
+    lib.optionals isLinux [
+      # nixos-rebuild is already included in commonPackages
+    ];
 
   # Simplified infrastructure management script
   infraScript = pkgs.writeShellScriptBin "infra" ''
@@ -112,6 +117,13 @@ let
         echo "Running: home-manager switch --flake .#$USER_CONFIG"
         home-manager switch --flake ".#$USER_CONFIG"
         ;;
+      "home")
+        USER_CONFIG=$(get_user_config)
+        
+        echo "🏠 Updating home configuration for $USER_CONFIG..."
+        echo "Running: home-manager switch --flake .#$USER_CONFIG"
+        home-manager switch --flake ".#$USER_CONFIG"
+        ;;
       *)
         echo "Usage: infra <command> [host]"
         echo ""
@@ -119,12 +131,14 @@ let
         echo "  update   - Update flake inputs"
         echo "  build    - Build system + home configuration (no activation)"
         echo "  upgrade  - Rebuild and switch system + home configuration"
+        echo "  home     - Update only home-manager configuration"
         echo ""
         echo "Examples:"
         echo "  infra update           # Update flake inputs"
         echo "  infra build xbook      # Build configurations for testing"
         echo "  infra upgrade          # Upgrade current host (auto-detected)"
         echo "  infra upgrade xbook    # Upgrade specific host"
+        echo "  infra home             # Update home-manager only (auto-detected)"
         echo ""
         echo "Supported hosts: xbook (Darwin), xmsi (NixOS)"
         exit 1
@@ -135,9 +149,13 @@ let
 in
 pkgs.mkShell {
   # Add build dependencies
-  packages = commonPackages ++ darwinPackages ++ linuxPackages ++ [
-    infraScript
-  ];
+  packages =
+    commonPackages
+    ++ darwinPackages
+    ++ linuxPackages
+    ++ [
+      infraScript
+    ];
 
   # Add environment variables
   env = {
@@ -159,7 +177,7 @@ pkgs.mkShell {
     echo "  infra update      # Update flake inputs"
     echo "  infra build xbook # Build configurations (cross-platform)"
     echo "  infra upgrade     # Upgrade current host (auto-detected)"
-    echo "  infra upgrade xbook  # Upgrade specific host"
+    echo "  infra home        # Update home-manager only"
     echo ""
     echo "Host configurations:"
     echo "  • xbook (Darwin) - plumps@xbook"

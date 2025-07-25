@@ -1,4 +1,11 @@
-{ inputs, pkgs, osConfig, config, lib, ... }:
+{
+  inputs,
+  pkgs,
+  osConfig,
+  config,
+  lib,
+  ...
+}:
 
 let
   cfg = config.userConfig;
@@ -25,24 +32,29 @@ in
 
   config = {
     # Set the home directory for the user, adjust if on darwin or linux
-    home.homeDirectory = if isDarwin
-      then "/Users/${cfg.name}"
-      else "/home/${cfg.name}";
+    home.homeDirectory = if isDarwin then "/Users/${cfg.name}" else "/home/${cfg.name}";
 
-    home.packages = with pkgs;
-      [
-       # core
-       fd
-       file
-       gh
-       jq
-       ripgrep
-       tree
-       unzip
-       wl-clipboard
+    home.packages = with pkgs; [
+      # core
+      bat
+      eza
+      fd
+      file
+      fzf
+      gh
+      jq
+      ripgrep
+      tree
+      unzip
+      zip
 
-       man-pages
-      ];
+      # Network tools
+      curl
+      wget
+      httpie
+
+      man-pages
+    ];
 
     programs.bash = {
       enable = true;
@@ -84,12 +96,12 @@ in
       enable = true;
       compression = true;
       matchBlocks = {
-	"git.adminforge.de" = {
+        "git.adminforge.de" = {
           user = "git";
-	  port = 222;
+          port = 222;
           identityFile = "~/Share/Secrets/.ssh/homelab/homelab";
-	  identitiesOnly = true;
-	};
+          identitiesOnly = true;
+        };
       };
     };
 
@@ -104,9 +116,43 @@ in
 
     programs.zoxide.enable = true;
 
+    home.sessionVariables = {
+      EDITOR = "nvim";
+      PAGER = "bat";
+      BAT_THEME = "base16";
+    };
+    # Shell aliases available on all systems
+    home.shellAliases = {
+      ll = "eza -la";
+      ls = "eza";
+      cat = "bat";
+      find = "fd";
+      grep = "rg";
+      cd = "z"; # zoxide
+
+      # Git shortcuts
+      g = "git";
+      gs = "git status";
+      ga = "git add";
+      gc = "git commit";
+      gp = "git push";
+      gl = "git log --oneline";
+      gd = "git diff";
+
+      # Development shortcuts
+      v = "nvim";
+      vim = "nvim";
+      cy = "claude --dangerously-skip-permissions";
+
+      # Quick directory navigation
+      ".." = "cd ..";
+      "..." = "cd ../..";
+      "...." = "cd ../../..";
+    };
+
     # only available on linux, disabled on macos
     services.ssh-agent.enable = pkgs.stdenv.isLinux;
 
     home.stateVersion = lib.mkDefault "25.05"; # initial home-manager state
-    };
+  };
 }

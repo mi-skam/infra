@@ -3,7 +3,8 @@
 let
   isDarwin = pkgs.stdenv.isDarwin;
   isLinux = pkgs.stdenv.isLinux;
-in {
+in
+{
   imports = [
     ./common.nix
   ];
@@ -13,13 +14,16 @@ in {
     ghostty.enable = isLinux;
   };
 
-  home.packages = with pkgs; 
+  home.packages =
+    with pkgs;
     # Common packages for both platforms
     [
       brave
       obsidian
       vivaldi
-    ] 
+      wl-clipboard
+
+    ]
     # Linux-only packages
     ++ lib.optionals isLinux [
       bitwarden-desktop

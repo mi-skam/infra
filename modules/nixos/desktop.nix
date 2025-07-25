@@ -1,9 +1,9 @@
-{pkgs, inputs, ...}:
+{ pkgs, inputs, ... }:
 
 {
   imports = [
-        ./common.nix
-        inputs.srvos.nixosModules.desktop
+    ./common.nix
+    inputs.srvos.nixosModules.desktop
   ];
   # set for VSCode
   boot.kernel.sysctl."fs.inotify.max_user_watches" = 524288;
@@ -19,23 +19,23 @@
     enable = true;
     keyboards = {
       default = {
-	ids = [ "*" ];
-	settings = {
+        ids = [ "*" ];
+        settings = {
           main = {
-	    capslock = "overload(m3, esc)";
-	  };
-	};
+            capslock = "overload(m3, esc)";
+          };
+        };
       };
       logitechMX = {
         ids = [ "046d:408a:cc02868b" ];
-	settings = {
-	  main = {
+        settings = {
+          main = {
             leftalt = "leftmeta";
-  	    leftmeta = "leftalt";
+            leftmeta = "leftalt";
 
             capslock = "overload(m3, esc)";
-	  };
-	};
+          };
+        };
       };
     };
   };
