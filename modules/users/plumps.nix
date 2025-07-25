@@ -30,18 +30,4 @@ in {
       hashedPassword = "$y$j9T$TfS4OF5Gxi.lsH/lnPiXO/$9i8iVkE1r0Z8.EEDOUC/SzM4edMmBWv.KAYzIUHJi19";
     })
   ];
-
-  # Set home-manager configuration for Darwin if needed
-  home-manager.users = lib.mkIf isDarwin {
-    plumps = {
-      home = {
-        username = "plumps";
-      };
-      userConfig = {
-          name = "plumps";
-          email = "maksim@miskam.xyz";
-          gitName = "mi-skam";
-      };
-    };
-  };
 }

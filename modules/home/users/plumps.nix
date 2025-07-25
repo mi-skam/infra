@@ -3,7 +3,7 @@
   home = {
     username = "plumps";
     homeDirectory = "/Users/plumps";
-    stateVersion = "24.11";
+    stateVersion = "25.05";
   };
 
   userConfig = {

@@ -107,6 +107,6 @@ in
     # only available on linux, disabled on macos
     services.ssh-agent.enable = pkgs.stdenv.isLinux;
 
-    home.stateVersion = "24.11"; # initial home-manager state
+    home.stateVersion = lib.mkDefault "25.05"; # initial home-manager state
     };
 }

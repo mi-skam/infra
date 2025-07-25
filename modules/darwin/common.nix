@@ -2,8 +2,10 @@
 {
   imports = [
     ../users/plumps.nix
-    inputs.home-manager.darwinModules.default
   ];
+
+  # Set primary user for system defaults
+  system.primaryUser = "plumps";
 
   # common nix settings
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
@@ -21,13 +23,6 @@
   programs.bash.enable = true;
   programs.bash.completion.enable = true;
   
-  # Home-manager configuration
-  home-manager = {
-    extraSpecialArgs = { inherit inputs; };
-    useGlobalPkgs = true;
-    useUserPackages = true;
-  };
-
   # Darwin-specific system settings
   system.defaults.NSGlobalDomain.AppleShowAllExtensions = true;
   system.defaults.finder.AppleShowAllFiles = true;
@@ -35,7 +30,7 @@
   system.defaults.dock.autohide = true;
   
   # Enable touch ID for sudo
-  security.pam.enableSudoTouchIdAuth = true;
+  security.pam.services.sudo_local.touchIdAuth = true;
 
   system.stateVersion = 5;
 }

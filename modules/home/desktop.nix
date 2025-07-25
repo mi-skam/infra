@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 
 let
   isDarwin = pkgs.stdenv.isDarwin;
@@ -19,12 +19,12 @@ in {
     [
       brave
       obsidian
-      signal-desktop
     ] 
     # Linux-only packages
     ++ lib.optionals isLinux [
       bitwarden-desktop
       freecad-wayland
+      signal-desktop
       spotify-qt
       kdePackages.kasts
     ]

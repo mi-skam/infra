@@ -1,4 +1,4 @@
-{pkg, config, lib, ...}:
+{pkgs, config, lib, ...}:
 {
   users.users.mi-skam = {
     uid = 1000;
@@ -24,6 +24,5 @@
     shell = "/run/current-system/sw/bin/bash";
 
     openssh.authorizedKeys.keyFiles = [ ../../authorized_keys ];
-
   };
 }

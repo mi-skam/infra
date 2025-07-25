@@ -2,7 +2,6 @@
 {
   imports = [
     ../users/mi-skam.nix
-    inputs.home-manager.nixosModules.default
     inputs.srvos.nixosModules.common
   ];
 
@@ -34,14 +33,5 @@
 
   networking.firewall.allowPing = true;
 
-  home-manager = {
-    extraSpecialArgs = { inherit inputs; };
-    useGlobalPkgs = true;
-    useUserPackages = true;
-  };
-
   services.userborn.enable = true;
-
-
-
 }
