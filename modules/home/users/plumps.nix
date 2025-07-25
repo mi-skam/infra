@@ -1,12 +1,15 @@
 { lib, ... }:
+let 
+  username = "plumps";
+in
 {
   home = {
-    username = "plumps";
+    inherit username;
     stateVersion = "25.05";
   };
 
   userConfig = {
-    name = "plumps";
+    name = username;
     email = "maksim@miskam.xyz";
     gitName = "mi-skam";
   };

@@ -23,6 +23,8 @@
       "spotify"
       "discord"
       "docker"
+      "visual-studio-code"
+      "vivaldi"
     ];
   };
 

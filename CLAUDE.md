@@ -117,3 +117,6 @@ The `scripts/` directory contains VM management utilities, primarily `create-vm-
 - **Multi-User Support**: Each user can manage their own home configuration
 - **Simplified Debugging**: System and home issues are isolated
 - **Flexible CLI Usage**: Use appropriate CLI tool for each configuration type
+
+## Technical Advise for Nix Flakes
+- If Nix Flakes sees that it's dealing with files in a git repository, those files and hence the changes need to be on the git index to be picked up!

@@ -21,6 +21,7 @@ in
     })
 
     (lib.mkIf isLinux {
+      description = "plumps";
       isNormalUser = true;
       extraGroups = [
         "audio"
