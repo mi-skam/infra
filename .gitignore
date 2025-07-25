@@ -4,3 +4,39 @@
 # nix
 result
 result-*
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.fuse_hidden*
+.Trash-*
+.nfs*
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.#*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# SSH keys (if any get generated locally)
+*.pem
+*.key
+id_*
+!*.pub
+
+# VM files
+*.qcow2
+*.img
+*.iso

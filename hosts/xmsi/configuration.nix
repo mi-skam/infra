@@ -6,8 +6,8 @@
       ./hardware-configuration.nix
       inputs.srvos.nixosModules.mixins-systemd-boot
 
-      inputs.self.nixosModules.plasma
-      inputs.self.nixosModules.desktop
+      ../../modules/nixos/plasma.nix
+      ../../modules/nixos/desktop.nix
 
       inputs.nixos-hardware.nixosModules.msi-gl65-10SDR-492
     ];
@@ -16,14 +16,10 @@
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  networking.hostName = "lt-02"; # Define your hostname.
+  networking.hostName = "xmsi"; # Define your hostname.
 
   nixpkgs.hostPlatform = "x86_64-linux";
 
-  home-manager.users.mi-skam = {
-    imports = [ inputs.self.homeModules.desktop ];
-    config.home.stateVersion = "24.11";
-  };
 
   services.printing.enable = true;
 
