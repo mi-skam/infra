@@ -11,7 +11,6 @@ in {
   programs = {
     firefox.enable = isLinux;
     ghostty.enable = isLinux;
-    vscode.enable = true;
   };
 
   home.packages = with pkgs; 

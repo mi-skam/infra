@@ -26,6 +26,18 @@ in {
       viAlias = true;
       vimAlias = true;
     };
+    
+    # VSCode with GUI extension management
+    vscode = {
+      enable = true;
+      # Use profiles structure (modern home-manager)
+      profiles.default = {
+        # Don't manage extensions through Nix - allows GUI installation
+        extensions = [];
+        # User settings can be managed here if desired, but empty allows GUI management
+        userSettings = {};
+      };
+    };
   };
 
   home.packages = with pkgs; 
