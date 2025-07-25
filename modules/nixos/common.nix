@@ -33,5 +33,11 @@
 
   networking.firewall.allowPing = true;
 
+  # Enable Docker daemon for development
+  virtualisation.docker = {
+    enable = true;
+    enableOnBoot = true;
+  };
+
   services.userborn.enable = true;
 }

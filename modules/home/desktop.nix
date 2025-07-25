@@ -18,6 +18,7 @@ in {
     [
       brave
       obsidian
+      vivaldi
     ] 
     # Linux-only packages
     ++ lib.optionals isLinux [
