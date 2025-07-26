@@ -1,0 +1,26 @@
+# Ghostty Terminal Configuration
+# This config works with both Nix-managed and traditional setups
+
+# Theme and appearance
+theme = "catppuccin-mocha"
+background-opacity = 0.95
+font-family = "JetBrains Mono"
+font-size = 12
+
+# Window settings
+window-decoration = true
+window-padding-x = 8
+window-padding-y = 8
+
+# Terminal behavior
+cursor-style = block
+cursor-style-blink = false
+scrollback-limit = 10000
+
+# Key bindings
+keybind = ctrl+shift+c=copy_to_clipboard
+keybind = ctrl+shift+v=paste_from_clipboard
+keybind = ctrl+shift+t=new_tab
+keybind = ctrl+shift+w=close_surface
+keybind = ctrl+shift+n=new_window
+keybind = ctrl+shift+enter=new_split:auto

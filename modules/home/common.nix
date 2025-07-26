@@ -18,6 +18,7 @@ in
     ./mullvad-vpn.nix
     ./wireguard.nix
     ./qbittorrent.nix
+    ./ghostty.nix
   ];
   options.userConfig = {
     name = lib.mkOption {
@@ -90,10 +91,6 @@ in
       interactiveShellInit = ''
         set fish_greeting # Disable greeting
       '';
-      plugins = with inputs.fishPlugins; [
-        fzf-fish
-        autopair
-      ];
       functions = {
         rcd = ''
           set tmpdir (mktemp -d)
