@@ -10,6 +10,8 @@ let
     git
     direnv
     nodejs_22 # For npm global package management
+    sops # Secrets management
+    age # Modern encryption
   ];
 
   # Platform-specific packages
@@ -172,12 +174,19 @@ pkgs.mkShell {
     ${if isDarwin then ''echo "  • darwin-rebuild - Build Darwin configurations"'' else ""}
     echo "  • home-manager   - Build Home Manager configurations"
     echo "  • infra          - Simplified infrastructure management"
+    echo "  • sops           - Secrets management (edit/view encrypted files)"
+    echo "  • age            - Modern encryption tool"
     echo ""
     echo "Quick commands:"
     echo "  infra update      # Update flake inputs"
     echo "  infra build xbook # Build configurations (cross-platform)"
     echo "  infra upgrade     # Upgrade current host (auto-detected)"
     echo "  infra home        # Update home-manager only"
+    echo ""
+    echo "Secrets management:"
+    echo "  sops secrets/ssh-keys.yaml     # Edit encrypted secrets"
+    echo "  sops -d secrets/ssh-keys.yaml  # View decrypted secrets"
+    echo "  age-keygen -o key.txt          # Generate new age key"
     echo ""
     echo "Host configurations:"
     echo "  • xbook (Darwin) - plumps@xbook"
