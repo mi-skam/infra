@@ -75,11 +75,32 @@ in
           # Remove \u
           PS1=$(echo "$PS1" | sed 's|\\u||g')
         fi
+
+        # Function to create a random temp directory and cd to it
+        rcd() {
+          local tmpdir=$(mktemp -d)
+          echo "Created and moved to: $tmpdir"
+          cd "$tmpdir"
+        }
       '';
     };
 
     programs.fish = {
       enable = true;
+      interactiveShellInit = ''
+        set fish_greeting # Disable greeting
+      '';
+      plugins = with inputs.fishPlugins; [
+        fzf-fish
+        autopair
+      ];
+      functions = {
+        rcd = ''
+          set tmpdir (mktemp -d)
+          echo "Created and moved to: $tmpdir"
+          cd $tmpdir
+        '';
+      };
     };
 
     programs.direnv = {
@@ -158,6 +179,9 @@ in
       ".." = "cd ..";
       "..." = "cd ../..";
       "...." = "cd ../../..";
+
+      # File operations
+      rf = "rm -rf";
     };
 
     # only available on linux, disabled on macos

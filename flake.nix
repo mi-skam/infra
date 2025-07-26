@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-25.05";
+    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
@@ -31,7 +32,13 @@
         nixosConfigurations = {
           xmsi = inputs.nixpkgs.lib.nixosSystem {
             system = "x86_64-linux";
-            specialArgs = { inherit inputs; };
+            specialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "x86_64-linux";
+                config.allowUnfree = true;
+              };
+            };
             modules = [
               ./hosts/xmsi/configuration.nix
             ];
@@ -42,7 +49,13 @@
         darwinConfigurations = {
           xbook = inputs.nix-darwin.lib.darwinSystem {
             system = "aarch64-darwin";
-            specialArgs = { inherit inputs; };
+            specialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "aarch64-darwin";
+                config.allowUnfree = true;
+              };
+            };
             modules = [
               ./hosts/xbook/darwin-configuration.nix
             ];
@@ -56,7 +69,13 @@
               system = "x86_64-linux";
               config.allowUnfree = true;
             };
-            extraSpecialArgs = { inherit inputs; };
+            extraSpecialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "x86_64-linux";
+                config.allowUnfree = true;
+              };
+            };
             modules = [
               ./modules/home/users/mi-skam.nix
               ./modules/home/desktop.nix
@@ -69,7 +88,13 @@
               system = "aarch64-darwin";
               config.allowUnfree = true;
             };
-            extraSpecialArgs = { inherit inputs; };
+            extraSpecialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "aarch64-darwin";
+                config.allowUnfree = true;
+              };
+            };
             modules = [
               ./modules/home/users/plumps.nix
               ./modules/home/desktop.nix
