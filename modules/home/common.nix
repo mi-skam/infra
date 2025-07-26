@@ -19,6 +19,7 @@ in
     ./wireguard.nix
     ./qbittorrent.nix
     ./ghostty.nix
+    ./ssh.nix
   ];
   options.userConfig = {
     name = lib.mkOption {
@@ -118,25 +119,100 @@ in
       enable = true;
       defaultEditor = true;
       vimAlias = true;
+      
+      extraLuaConfig = ''
+        vim.cmd.colorscheme "catppuccin-mocha"
+      '';
+      
+      plugins = with pkgs.vimPlugins; [
+        {
+          plugin = catppuccin-nvim;
+          config = ''
+            require("catppuccin").setup({
+              flavour = "mocha",
+              background = {
+                light = "latte",
+                dark = "mocha",
+              },
+              transparent_background = false,
+              show_end_of_buffer = false,
+              term_colors = false,
+              dim_inactive = {
+                enabled = false,
+                shade = "dark",
+                percentage = 0.15,
+              },
+              no_italic = false,
+              no_bold = false,
+              no_underline = false,
+              styles = {
+                comments = { "italic" },
+                conditionals = { "italic" },
+                loops = {},
+                functions = {},
+                keywords = {},
+                strings = {},
+                variables = {},
+                numbers = {},
+                booleans = {},
+                properties = {},
+                types = {},
+                operators = {},
+              },
+              color_overrides = {},
+              custom_highlights = {},
+              integrations = {
+                cmp = true,
+                gitsigns = true,
+                nvimtree = true,
+                treesitter = true,
+                notify = false,
+                mini = {
+                  enabled = true,
+                  indentscope_color = "",
+                },
+              },
+            })
+          '';
+          type = "lua";
+        }
+      ];
     };
 
-    programs.ssh = {
-      enable = true;
-      compression = true;
-      matchBlocks = {
-        "git.adminforge.de" = {
-          user = "git";
-          port = 222;
-          identityFile = "~/Share/Secrets/.ssh/homelab/homelab";
-          identitiesOnly = true;
-        };
-      };
-    };
 
     programs.starship = {
       enable = true;
       settings = {
         git_status.disabled = true;
+        palette = "catppuccin_mocha";
+        palettes.catppuccin_mocha = {
+          rosewater = "#f5e0dc";
+          flamingo = "#f2cdcd";
+          pink = "#f5c2e7";
+          mauve = "#cba6f7";
+          red = "#f38ba8";
+          maroon = "#eba0ac";
+          peach = "#fab387";
+          yellow = "#f9e2af";
+          green = "#a6e3a1";
+          teal = "#94e2d5";
+          sky = "#89dceb";
+          sapphire = "#74c7ec";
+          blue = "#89b4fa";
+          lavender = "#b4befe";
+          text = "#cdd6f4";
+          subtext1 = "#bac2de";
+          subtext0 = "#a6adc8";
+          overlay2 = "#9399b2";
+          overlay1 = "#7f849c";
+          overlay0 = "#6c7086";
+          surface2 = "#585b70";
+          surface1 = "#45475a";
+          surface0 = "#313244";
+          base = "#1e1e2e";
+          mantle = "#181825";
+          crust = "#11111b";
+        };
       };
     };
 
@@ -147,7 +223,7 @@ in
     home.sessionVariables = {
       EDITOR = "nvim";
       PAGER = "bat";
-      BAT_THEME = "base16";
+      BAT_THEME = "Catppuccin Mocha";
     };
     # Shell aliases available on all systems
     home.shellAliases = {
