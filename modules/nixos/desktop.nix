@@ -3,6 +3,7 @@
 {
   imports = [
     ./common.nix
+    ./mullvad-vpn.nix
     inputs.srvos.nixosModules.desktop
   ];
   # set for VSCode

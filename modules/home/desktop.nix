@@ -1,4 +1,4 @@
-{ pkgs, lib, ... }:
+{ pkgs, pkgs-unstable, lib, ... }:
 
 let
   isDarwin = pkgs.stdenv.isDarwin;
@@ -20,7 +20,7 @@ in
     # Common packages available in nixpkgs for both platforms
     [
       # Keep packages that work well from nixpkgs on both platforms
-      obsidian
+      pkgs-unstable.obsidian
     ]
     # Linux-only packages (GUI apps via nixpkgs)
     ++ lib.optionals isLinux [
