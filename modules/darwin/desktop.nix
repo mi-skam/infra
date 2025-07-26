@@ -25,6 +25,9 @@
       "docker"
       "visual-studio-code"
       "vivaldi"
+      "mullvad-vpn"
+      "wireguard-ui"
+      "qbittorrent"
     ];
   };
 

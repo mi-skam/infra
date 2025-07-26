@@ -15,6 +15,9 @@ in
 {
   imports = [
     ./syncthing.nix
+    ./mullvad-vpn.nix
+    ./wireguard.nix
+    ./qbittorrent.nix
   ];
   options.userConfig = {
     name = lib.mkOption {
