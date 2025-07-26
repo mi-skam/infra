@@ -37,7 +37,7 @@ in
       "git.adminforge.de" = {
         user = "git";
         port = 222;
-        identityFile = "~/Share/Secrets/.ssh/homelab/homelab";
+        identityFile = "~/.ssh/homelab";
         identitiesOnly = true;
       };
     };

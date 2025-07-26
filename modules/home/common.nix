@@ -15,11 +15,11 @@ in
 {
   imports = [
     ./syncthing.nix
-    ./mullvad-vpn.nix
-    ./wireguard.nix
+    # ./wireguard.nix
     ./qbittorrent.nix
     ./ghostty.nix
     ./ssh.nix
+    ./secrets.nix
   ];
   options.userConfig = {
     name = lib.mkOption {
