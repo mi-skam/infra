@@ -34,10 +34,7 @@ in
     ++ lib.optionals isLinux [
       brave
       vivaldi
-      bitwarden-desktop
       freecad-wayland
-      signal-desktop
-      spotify-qt
       kdePackages.kasts
       wl-clipboard
     ];
