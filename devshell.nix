@@ -44,6 +44,9 @@ let
         "xmsi")
           echo "nixos"
           ;;
+        "srv-01")
+          echo "nixos"
+          ;;
         *)
           echo "unknown"
           ;;
@@ -59,8 +62,11 @@ let
         "xbook")
           echo "plumps@xbook"
           ;;
+        "srv-01")
+          echo "plumps@srv-01"
+          ;;
         *)
-          echo "Error: Unknown host '$HOST'. Supported hosts: xmsi, xbook"
+          echo "Error: Unknown host '$HOST'. Supported hosts: xmsi, xbook, srv-01"
           exit 1
           ;;
       esac
@@ -142,7 +148,7 @@ let
         echo "  infra upgrade xbook    # Upgrade specific host"
         echo "  infra home             # Update home-manager only (auto-detected)"
         echo ""
-        echo "Supported hosts: xbook (Darwin), xmsi (NixOS)"
+        echo "Supported hosts: xbook (Darwin), xmsi (NixOS), srv-01 (NixOS)"
         exit 1
         ;;
     esac
@@ -191,6 +197,7 @@ pkgs.mkShell {
     echo "Host configurations:"
     echo "  • xbook (Darwin) - plumps@xbook"
     echo "  • xmsi (NixOS)   - mi-skam@xmsi"
+    echo "  • srv-01 (NixOS) - plumps@srv-01"
     echo ""
   '';
 }
