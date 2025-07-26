@@ -16,8 +16,6 @@ in
   imports = [
     ./syncthing.nix
     # ./wireguard.nix
-    ./qbittorrent.nix
-    ./ghostty.nix
     ./ssh.nix
     ./secrets.nix
   ];

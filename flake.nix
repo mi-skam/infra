@@ -47,6 +47,21 @@
               inputs.sops-nix.nixosModules.sops
             ];
           };
+          
+          srv-01 = inputs.nixpkgs.lib.nixosSystem {
+            system = "x86_64-linux";
+            specialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "x86_64-linux";
+                config.allowUnfree = true;
+              };
+            };
+            modules = [
+              ./hosts/srv-01/configuration.nix
+              inputs.sops-nix.nixosModules.sops
+            ];
+          };
         };
 
         # Darwin configurations
@@ -105,6 +120,25 @@
               ./modules/home/users/plumps.nix
               ./modules/home/desktop.nix
               ./modules/home/dev.nix
+              inputs.sops-nix.homeManagerModules.sops
+            ];
+          };
+          
+          "plumps@srv-01" = inputs.home-manager.lib.homeManagerConfiguration {
+            pkgs = import inputs.nixpkgs {
+              system = "x86_64-linux";
+              config.allowUnfree = true;
+            };
+            extraSpecialArgs = { 
+              inherit inputs;
+              pkgs-unstable = import inputs.nixpkgs-unstable {
+                system = "x86_64-linux";
+                config.allowUnfree = true;
+              };
+            };
+            modules = [
+              ./modules/home/users/plumps.nix
+              ./modules/home/common.nix
               inputs.sops-nix.homeManagerModules.sops
             ];
           };

@@ -40,6 +40,13 @@ in
         identityFile = "~/.ssh/homelab";
         identitiesOnly = true;
       };
+      
+      "srv-01.dev.zz" = {
+        hostname = "10.100.254.90";
+        user = "plumps";
+        identityFile = "~/.ssh/homelab";
+        identitiesOnly = true;
+      };
     };
   };
 }

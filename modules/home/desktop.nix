@@ -7,6 +7,8 @@ in
 {
   imports = [
     ./common.nix
+    ./qbittorrent.nix
+    ./ghostty.nix
   ];
 
   programs = {

@@ -34,6 +34,11 @@
 
   programs.fish.enable = true;
   programs.command-not-found.enable = false;
+  
+  # Add home-manager to system packages for remote deployment
+  environment.systemPackages = with inputs.home-manager.packages.x86_64-linux; [
+    home-manager
+  ];
 
   networking.firewall.allowPing = true;
 
