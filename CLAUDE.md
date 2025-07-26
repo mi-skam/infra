@@ -34,6 +34,37 @@ System hosts only handle OS and user accounts:
 ### Cross-Platform Home Manager
 The `modules/home/common.nix` implements cross-platform logic using `pkgs.stdenv.isDarwin/isLinux` for platform-specific configuration (home directories, SSH agent, package selection). Home configurations include their own nixpkgs with allowUnfree enabled.
 
+## Secrets Management
+
+This project uses SOPS (Secrets OPerationS) with age encryption for managing sensitive data like user passwords.
+
+### SOPS Setup Requirements
+
+**CRITICAL:** Before deploying any NixOS system that uses encrypted secrets, you MUST manually deploy the age private key:
+
+```bash
+# On the target system, copy your age private key:
+sudo mkdir -p /etc/sops/age
+sudo cp /path/to/your/age-private-key.txt /etc/sops/age/keys.txt
+sudo chmod 600 /etc/sops/age/keys.txt
+sudo chown root:root /etc/sops/age/keys.txt
+```
+
+**The age private key is never stored in this repository for security reasons.**
+
+### Working with Secrets
+
+```bash
+# Edit encrypted secrets
+sops secrets/users.yaml
+
+# View decrypted secrets (for debugging)
+sops -d secrets/users.yaml
+
+# Add new secrets
+sops secrets/new-secret.yaml
+```
+
 ## Essential Commands
 
 ### System Rebuilds

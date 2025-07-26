@@ -2,9 +2,10 @@
 
 {
   imports = [
+    inputs.srvos.nixosModules.desktop
+    
     ./common.nix
     ./mullvad-vpn.nix
-    inputs.srvos.nixosModules.desktop
   ];
   # set for VSCode
   boot.kernel.sysctl."fs.inotify.max_user_watches" = 524288;

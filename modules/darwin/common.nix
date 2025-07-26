@@ -2,6 +2,7 @@
 {
   imports = [
     ../users/plumps.nix
+    ./secrets.nix
   ];
 
   # Set primary user for system defaults

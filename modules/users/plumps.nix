@@ -34,7 +34,9 @@ in
         "video"
         "wheel"
       ];
-      hashedPassword = "$y$j9T$TfS4OF5Gxi.lsH/lnPiXO/$9i8iVkE1r0Z8.EEDOUC/SzM4edMmBWv.KAYzIUHJi19";
+      hashedPasswordFile = config.sops.secrets."plumps".path;
     })
   ];
+  
+  users.mutableUsers = false;
 }

@@ -1,8 +1,12 @@
 { inputs, ... }:
 {
   imports = [
-    ../users/mi-skam.nix
     inputs.srvos.nixosModules.common
+
+    ../users/mi-skam.nix
+    ../users/plumps.nix
+
+    ./secrets.nix
   ];
 
   # common nix settings
@@ -34,7 +38,7 @@
 
   programs.fish.enable = true;
   programs.command-not-found.enable = false;
-  
+
   # Add home-manager to system packages for remote deployment
   environment.systemPackages = with inputs.home-manager.packages.x86_64-linux; [
     home-manager
