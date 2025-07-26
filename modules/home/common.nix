@@ -13,6 +13,9 @@ let
   isLinux = pkgs.stdenv.isLinux;
 in
 {
+  imports = [
+    ./syncthing.nix
+  ];
   options.userConfig = {
     name = lib.mkOption {
       type = lib.types.str;
@@ -55,7 +58,6 @@ in
 
       man-pages
     ];
-
 
     programs.bash = {
       enable = true;
