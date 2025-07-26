@@ -17,6 +17,9 @@
 
     srvos.url = "github:numtide/srvos";
     srvos.inputs.nixpkgs.follows = "nixpkgs";
+
+    sops-nix.url = "github:Mic92/sops-nix";
+    sops-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs =
@@ -41,6 +44,7 @@
             };
             modules = [
               ./hosts/xmsi/configuration.nix
+              inputs.sops-nix.nixosModules.sops
             ];
           };
         };
@@ -58,6 +62,7 @@
             };
             modules = [
               ./hosts/xbook/darwin-configuration.nix
+              inputs.sops-nix.darwinModules.sops
             ];
           };
         };
@@ -80,6 +85,7 @@
               ./modules/home/users/mi-skam.nix
               ./modules/home/desktop.nix
               ./modules/home/dev.nix
+              inputs.sops-nix.homeManagerModules.sops
             ];
           };
 
@@ -99,6 +105,7 @@
               ./modules/home/users/plumps.nix
               ./modules/home/desktop.nix
               ./modules/home/dev.nix
+              inputs.sops-nix.homeManagerModules.sops
             ];
           };
         };

@@ -1,0 +1,12 @@
+keys:
+  - &mi-skam age13un6j66l3x70f3yc4lwjuvj6d95g7aaq2xj5pjugg0m9up7jcces6xtv4u
+
+creation_rules:
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *mi-skam
+  - path_regex: secrets/.*\.json$
+    key_groups:
+      - age:
+          - *mi-skam
