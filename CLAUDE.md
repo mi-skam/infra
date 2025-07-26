@@ -91,6 +91,8 @@ nixos-rebuild build --flake .#xmsi
 home-manager switch --flake .#mi-skam@xmsi
 ```
 
+**Important for Claude Code:** Use `infra upgrade` after making configuration changes to test and apply them automatically. The infra command detects the current host and applies the appropriate rebuild command.
+
 ### Other Development Commands
 ```bash
 # Update flake inputs
