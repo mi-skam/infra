@@ -29,6 +29,48 @@ nix develop
 direnv allow
 ```
 
+## Initial Setup
+
+After cloning the repository, you'll need to set up secrets management:
+
+### 1. Generate Age Encryption Key
+```shell
+# Create age key directory
+mkdir -p ~/.config/sops/age
+
+# Generate new age key pair
+age-keygen -o ~/.config/sops/age/keys.txt
+
+# Note your public key for adding to .sops.yaml
+# Example: age13un6j66l3x70f3yc4lwjuvj6d95g7aaq2xj5pjugg0m9up7jcces6xtv4u
+```
+
+### 2. Update Secrets Configuration
+Add your public age key to `.sops.yaml`:
+```yaml
+keys:
+  - &your-name age13un6j66l3x70f3yc4lwjuvj6d95g7aaq2xj5pjugg0m9up7jcces6xtv4u
+
+creation_rules:
+  - path_regex: secrets/.*\.yaml$
+    key_groups:
+      - age:
+          - *your-name
+```
+
+### 3. Re-encrypt Existing Secrets
+```shell
+# Update encryption for your key
+sops updatekeys secrets/ssh-keys.yaml
+```
+
+### 4. Backup Your Age Key ⚠️
+```shell
+# CRITICAL: Backup your private key securely!
+cp ~/.config/sops/age/keys.txt ~/backup/age-key-backup.txt
+# Store in a secure location - if lost, secrets become unrecoverable!
+```
+
 ## Usage
 
 ### System Rebuilds
@@ -75,4 +117,46 @@ darwin-rebuild build --flake .#xbook
 The development shell provides:
 - All rebuild tools (`nixos-rebuild`, `darwin-rebuild`, `home-manager`)
 - Infrastructure management (`infra` command)
+- Secrets management (`sops`, `age`)
 - Git, direnv, and other development utilities
+
+## Secrets Management
+
+This repository uses [sops-nix](https://github.com/Mic92/sops-nix) with [age](https://age-encryption.org/) for encrypted secrets management.
+
+### Managing Secrets
+```shell
+# Edit encrypted secrets (opens in $EDITOR)
+sops secrets/ssh-keys.yaml
+
+# View decrypted content
+sops -d secrets/ssh-keys.yaml
+
+# Create new secrets file
+sops secrets/new-file.yaml
+
+# Generate new age key
+age-keygen -o new-key.txt
+
+# Re-encrypt for new recipients
+sops updatekeys secrets/ssh-keys.yaml
+```
+
+### Secrets Structure
+```
+secrets/
+├── ssh-keys.yaml       # SSH private/public keys
+├── api-keys.yaml       # API tokens and keys
+└── passwords.yaml      # Passwords and credentials
+```
+
+### Adding New Secrets
+1. Edit or create encrypted file: `sops secrets/filename.yaml`
+2. Add secret deployment to `modules/home/secrets.nix`
+3. Deploy with `infra home`
+
+### Security Model
+- **Encrypted at rest**: Safe to commit encrypted files to git
+- **Decrypted at deploy**: Only during `infra home` execution
+- **Access control**: Age private key = access to secrets
+- **Runtime storage**: Decrypted secrets in `/run/user/*/secrets/`
