@@ -1,4 +1,4 @@
-# Infrastructure as Code
+# Infra
 
 This repository manages infrastructure using:
 - **Nix** for NixOS, Home Manager, and Nix Darwin systems (local workstations)
@@ -6,23 +6,6 @@ This repository manages infrastructure using:
 - **Ansible** for Debian/Rocky/Ubuntu VPS configuration management
 
 Uses flake-parts for clean, modular organization across multiple hosts with shared modules.
-
-## Features
-
-- **Hybrid Infrastructure**: Manage both NixOS systems and traditional VPS
-- **Secrets Management**: SOPS with Age encryption for all sensitive data
-- **Automated Backups**: Hetzner Storage Box integration with Mailcow backups
-- **Dynamic Inventory**: Ansible inventory automatically generated from Terraform
-- **Role-Based Grouping**: Servers grouped by role (mail, syncthing, etc.)
-
-## Architecture
-
-The project uses **completely decoupled** configurations:
-- **System Configurations**: Handle OS-level setup, users, and system services
-- **Home Configurations**: Handle user dotfiles, applications, and personal settings
-- **Development Shells**: Handle development environments
-- **Cloud Infrastructure**: OpenTofu for Hetzner Cloud resources
-- **Configuration Management**: Ansible for VPS setup and maintenance
 
 ### Module Organization
 - `modules/nixos/`: NixOS-specific system configurations
@@ -33,12 +16,20 @@ The project uses **completely decoupled** configurations:
 - `ansible/`: VPS configuration management
 - `secrets/`: Encrypted secrets (SOPS)
 
+### Development Tools
+The development shell provides:
+- **Nix tools**: `nixos-rebuild`, `darwin-rebuild`, `home-manager`
+- **Infrastructure**: `opentofu` (Terraform), `ansible`, `hcloud` CLI
+- **Automation**: `just` task runner with common operations
+- **Secrets**: `sops`, `age` for encrypted secrets management
+- **Utilities**: `git`, `direnv`, `jq`, and other development tools
+
 ## Quick Start
 
 ```shell
 # Clone the repository
-git clone ssh://git@git.adminforge.de:222/maksim/infrastructure.git
-cd infrastructure
+git clone https://github.com/mi-skam/infra.git
+cd infra
 
 # Enter development shell (includes all tools)
 nix develop
@@ -109,21 +100,35 @@ home-manager switch --flake .#plumps@xbook      # Darwin
 home-manager build --flake .#username@hostname
 ```
 
-### Simplified Management
-The development shell includes an `infra` command for easier management:
-
-```shell
-infra update           # Update flake inputs
-infra upgrade          # Upgrade current host (auto-detected)
-infra upgrade xbook    # Upgrade specific host
-infra home            # Update home configuration
-```
-
 ### Build Testing
 ```shell
 # Test builds without activation
 nixos-rebuild build --flake .#xmsi
 darwin-rebuild build --flake .#xbook
+```
+
+### Hetzner Cloud Management
+
+```shell
+# all available targets
+just list
+
+# View infrastructure
+just tf-output
+hcloud server list
+hcloud network list
+
+# Make infrastructure changes
+just tf-plan    # Preview changes
+just tf-apply   # Apply changes
+
+# Deploy configuration to VPS
+just ansible-ping           # Test connectivity
+just ansible-deploy deploy  # Deploy configurations
+just ansible-deploy-env prod  # Deploy only to production
+
+# Backup management
+just ansible-deploy mailcow-backup  # Run backup and setup cron
 ```
 
 ## Managed Infrastructure
@@ -145,34 +150,6 @@ darwin-rebuild build --flake .#xbook
 - Subnet: 10.0.0.0/24 (eu-central)
 - All servers connected via private network
 
-### Hetzner Cloud Management
-
-```shell
-# View infrastructure
-just tf-output
-hcloud server list
-hcloud network list
-
-# Make infrastructure changes
-just tf-plan    # Preview changes
-just tf-apply   # Apply changes
-
-# Deploy configuration to VPS
-just ansible-ping           # Test connectivity
-just ansible-deploy deploy  # Deploy configurations
-just ansible-deploy-env prod  # Deploy only to production
-
-# Backup management
-just ansible-deploy mailcow-backup  # Run backup and setup cron
-```
-
-## Development Tools
-The development shell provides:
-- **Nix tools**: `nixos-rebuild`, `darwin-rebuild`, `home-manager`
-- **Infrastructure**: `opentofu` (Terraform), `ansible`, `hcloud` CLI
-- **Automation**: `just` task runner with common operations
-- **Secrets**: `sops`, `age` for encrypted secrets management
-- **Utilities**: `git`, `direnv`, `jq`, and other development tools
 
 ## Secrets Management
 
@@ -196,23 +173,9 @@ age-keygen -o new-key.txt
 sops updatekeys secrets/ssh-keys.yaml
 ```
 
-### Secrets Structure
-```
-secrets/
-├── hetzner.yaml        # Hetzner Cloud API token
-├── storagebox.yaml     # Hetzner Storage Box credentials
-└── .sops.yaml          # SOPS configuration (age keys)
-```
-
 **Note:** All secrets are encrypted with SOPS and safe to commit to git.
 
 ### Adding New Secrets
 1. Edit or create encrypted file: `sops secrets/filename.yaml`
 2. Add secret deployment to `modules/home/secrets.nix`
 3. Deploy with `infra home`
-
-### Security Model
-- **Encrypted at rest**: Safe to commit encrypted files to git
-- **Decrypted at deploy**: Only during `infra home` execution
-- **Access control**: Age private key = access to secrets
-- **Runtime storage**: Decrypted secrets in `/run/user/*/secrets/`
