@@ -1,0 +1,58 @@
+---
+# Mailcow backup playbook - backs up and updates mailcow
+# Usage: ansible-playbook playbooks/mailcow-backup.yaml
+
+- name: Backup and update Mailcow
+  hosts: mail
+  become: true
+  gather_facts: true
+
+  vars:
+    mailcow_dir: /opt/mailcow-dockerized
+    backup_location: /mnt/storagebox/mailcow
+
+  tasks:
+    - name: Check if mailcow directory exists
+      ansible.builtin.stat:
+        path: "{{ mailcow_dir }}"
+      register: mailcow_stat
+
+    - name: Fail if mailcow is not installed
+      ansible.builtin.fail:
+        msg: "Mailcow directory {{ mailcow_dir }} does not exist"
+      when: not mailcow_stat.stat.exists
+
+    - name: Run mailcow backup
+      ansible.builtin.shell: |
+        cd {{ mailcow_dir }}
+        MAILCOW_BACKUP_LOCATION={{ backup_location }} {{ mailcow_dir }}/helper-scripts/backup_and_restore.sh backup all
+      args:
+        executable: /bin/bash
+      register: backup_result
+      changed_when: backup_result.rc == 0
+
+    - name: Display backup output
+      ansible.builtin.debug:
+        var: backup_result.stdout_lines
+
+    - name: Run mailcow update with garbage collection
+      ansible.builtin.shell: |
+        cd {{ mailcow_dir }}
+        ./update.sh --gc --force
+      args:
+        executable: /bin/bash
+      register: update_result
+      changed_when: update_result.rc == 0
+
+    - name: Display update output
+      ansible.builtin.debug:
+        var: update_result.stdout_lines
+
+    - name: Create cron job for nightly backups
+      ansible.builtin.cron:
+        name: "Mailcow nightly backup and update"
+        minute: "0"
+        hour: "2"
+        job: "cd {{ mailcow_dir }} && MAILCOW_BACKUP_LOCATION={{ backup_location }} {{ mailcow_dir }}/helper-scripts/backup_and_restore.sh backup all && {{ mailcow_dir }}/update.sh --gc --force >> /var/log/mailcow-backup.log 2>&1"
+        user: root
+        state: present

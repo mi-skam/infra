@@ -1,0 +1,36 @@
+---
+# Common role tasks
+
+- name: Ensure system is up to date (Debian/Ubuntu)
+  apt:
+    upgrade: dist
+    update_cache: true
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Ensure system is up to date (RedHat)
+  dnf:
+    name: "*"
+    state: latest
+    update_cache: true
+  when: ansible_os_family == "RedHat"
+
+- name: Create common directories
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /opt/scripts
+    - /var/log/homelab
+
+- name: Install useful shell aliases
+  copy:
+    dest: /root/.bash_aliases
+    content: |
+      alias ll='ls -lah'
+      alias ports='netstat -tulanp'
+      alias meminfo='free -m -l -t'
+      alias psmem='ps auxf | sort -nr -k 4'
+      alias pscpu='ps auxf | sort -nr -k 3'
+    mode: '0644'

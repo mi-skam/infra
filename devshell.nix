@@ -12,13 +12,18 @@ let
     nodejs_22 # For npm global package management
     sops # Secrets management
     age # Modern encryption
+    opentofu # Infrastructure as Code
+    ansible # Configuration management
+    hcloud # Hetzner Cloud CLI
+    jq # JSON processing for scripts
+    just # Task runner
   ];
 
   # Platform-specific packages
   darwinPackages =
     with pkgs;
     lib.optionals isDarwin [
-      darwin-rebuild
+      # darwin-rebuild is provided by nix-darwin installation, not as a package
     ];
 
   linuxPackages =
@@ -27,143 +32,13 @@ let
       # nixos-rebuild is already included in commonPackages
     ];
 
-  # Simplified infrastructure management script
-  infraScript = pkgs.writeShellScriptBin "infra" ''
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    COMMAND="''${1:-}"
-    HOST="''${2:-$(hostname)}"
-
-    # Get system type for a specific host
-    get_host_system_type() {
-      case "$1" in
-        "xbook")
-          echo "darwin"
-          ;;
-        "xmsi")
-          echo "nixos"
-          ;;
-        "srv-01")
-          echo "nixos"
-          ;;
-        *)
-          echo "unknown"
-          ;;
-      esac
-    }
-
-    # Get user configuration for host
-    get_user_config() {
-      case "$HOST" in
-        "xmsi")
-          echo "mi-skam@xmsi"
-          ;;
-        "xbook")
-          echo "plumps@xbook"
-          ;;
-        "srv-01")
-          echo "plumps@srv-01"
-          ;;
-        *)
-          echo "Error: Unknown host '$HOST'. Supported hosts: xmsi, xbook, srv-01"
-          exit 1
-          ;;
-      esac
-    }
-
-    case "$COMMAND" in
-      "update")
-        echo "🔄 Updating flake inputs..."
-        nix flake update
-        ;;
-      "build")
-        SYSTEM_TYPE=$(get_host_system_type "$HOST")
-        USER_CONFIG=$(get_user_config)
-        
-        echo "🔧 Building $HOST ($SYSTEM_TYPE) configuration..."
-        
-        case "$SYSTEM_TYPE" in
-          "nixos")
-            echo "Running: nixos-rebuild build --flake .#$HOST"
-            nixos-rebuild build --flake ".#$HOST"
-            ;;
-          "darwin")
-            echo "Running: nix build .#darwinConfigurations.$HOST.system"
-            nix build ".#darwinConfigurations.$HOST.system"
-            ;;
-          *)
-            echo "Error: Unable to determine system type for $HOST"
-            exit 1
-            ;;
-        esac
-        
-        echo "Running: home-manager build --flake .#$USER_CONFIG"
-        home-manager build --flake ".#$USER_CONFIG"
-        ;;
-      "upgrade")
-        SYSTEM_TYPE=$(get_host_system_type "$HOST")
-        USER_CONFIG=$(get_user_config)
-        
-        echo "🚀 Upgrading $HOST ($SYSTEM_TYPE)..."
-        
-        case "$SYSTEM_TYPE" in
-          "nixos")
-            echo "Running: sudo nixos-rebuild switch --flake .#$HOST"
-            sudo nixos-rebuild switch --flake ".#$HOST"
-            ;;
-          "darwin")
-            echo "Running: darwin-rebuild switch --flake .#$HOST"
-            darwin-rebuild switch --flake ".#$HOST"
-            ;;
-          *)
-            echo "Error: Unable to determine system type for $HOST"
-            exit 1
-            ;;
-        esac
-        
-        echo "Running: home-manager switch --flake .#$USER_CONFIG"
-        home-manager switch --flake ".#$USER_CONFIG"
-        ;;
-      "home")
-        USER_CONFIG=$(get_user_config)
-        
-        echo "🏠 Updating home configuration for $USER_CONFIG..."
-        echo "Running: home-manager switch --flake .#$USER_CONFIG"
-        home-manager switch --flake ".#$USER_CONFIG"
-        ;;
-      *)
-        echo "Usage: infra <command> [host]"
-        echo ""
-        echo "Commands:"
-        echo "  update   - Update flake inputs"
-        echo "  build    - Build system + home configuration (no activation)"
-        echo "  upgrade  - Rebuild and switch system + home configuration"
-        echo "  home     - Update only home-manager configuration"
-        echo ""
-        echo "Examples:"
-        echo "  infra update           # Update flake inputs"
-        echo "  infra build xbook      # Build configurations for testing"
-        echo "  infra upgrade          # Upgrade current host (auto-detected)"
-        echo "  infra upgrade xbook    # Upgrade specific host"
-        echo "  infra home             # Update home-manager only (auto-detected)"
-        echo ""
-        echo "Supported hosts: xbook (Darwin), xmsi (NixOS), srv-01 (NixOS)"
-        exit 1
-        ;;
-    esac
-  '';
-
 in
 pkgs.mkShell {
   # Add build dependencies
   packages =
     commonPackages
     ++ darwinPackages
-    ++ linuxPackages
-    ++ [
-      infraScript
-    ];
+    ++ linuxPackages;
 
   # Add environment variables
   env = {
@@ -173,31 +48,46 @@ pkgs.mkShell {
 
   # Load custom bash code
   shellHook = ''
+    # Helper function to load Hetzner API token
+    load-hetzner-token() {
+      export HCLOUD_TOKEN="$(${pkgs.sops}/bin/sops -d secrets/hetzner.yaml | ${pkgs.gnugrep}/bin/grep 'hcloud:' | ${pkgs.coreutils}/bin/cut -d: -f2 | ${pkgs.coreutils}/bin/tr -d ' ')"
+      echo "✓ Loaded HCLOUD_TOKEN from secrets/hetzner.yaml"
+    }
+
     echo "🚀 Infrastructure Development Shell"
     echo ""
     echo "Available tools:"
     echo "  • nixos-rebuild  - Build NixOS configurations"
     ${if isDarwin then ''echo "  • darwin-rebuild - Build Darwin configurations"'' else ""}
     echo "  • home-manager   - Build Home Manager configurations"
-    echo "  • infra          - Simplified infrastructure management"
-    echo "  • sops           - Secrets management (edit/view encrypted files)"
-    echo "  • age            - Modern encryption tool"
+    echo "  • opentofu       - Infrastructure as Code (terraform)"
+    echo "  • ansible        - Configuration management"
+    echo "  • hcloud         - Hetzner Cloud CLI"
+    echo "  • just           - Task runner (see justfile)"
+    echo "  • sops/age       - Secrets management"
     echo ""
-    echo "Quick commands:"
-    echo "  infra update      # Update flake inputs"
-    echo "  infra build xbook # Build configurations (cross-platform)"
-    echo "  infra upgrade     # Upgrade current host (auto-detected)"
-    echo "  infra home        # Update home-manager only"
+    echo "Common tasks (use 'just' to see all):"
+    echo "  just tf-plan              # Preview infrastructure changes"
+    echo "  just tf-apply             # Apply infrastructure changes"
+    echo "  just ansible-ping         # Test server connectivity"
+    echo "  just ansible-deploy       # Deploy configurations"
     echo ""
-    echo "Secrets management:"
-    echo "  sops secrets/ssh-keys.yaml     # Edit encrypted secrets"
-    echo "  sops -d secrets/ssh-keys.yaml  # View decrypted secrets"
-    echo "  age-keygen -o key.txt          # Generate new age key"
+    echo "NixOS/Darwin:"
+    echo "  sudo nixos-rebuild switch --flake .#xmsi"
+    echo "  darwin-rebuild switch --flake .#xbook"
+    echo "  home-manager switch --flake .#mi-skam@xmsi"
     echo ""
-    echo "Host configurations:"
-    echo "  • xbook (Darwin) - plumps@xbook"
-    echo "  • xmsi (NixOS)   - mi-skam@xmsi"
-    echo "  • srv-01 (NixOS) - plumps@srv-01"
+    echo "Secrets:"
+    echo "  sops secrets/hetzner.yaml       # Edit API tokens"
+    echo "  load-hetzner-token              # Load HCLOUD_TOKEN env var"
+    echo ""
+    echo "Hetzner Cloud (requires load-hetzner-token):"
+    echo "  hcloud server list              # List all servers"
+    echo "  hcloud network list             # List networks"
+    echo ""
+    echo "Infrastructure:"
+    echo "  • Local: xbook (Darwin), xmsi (NixOS), srv-01 (NixOS)"
+    echo "  • Hetzner: 3 VPS (mail, syncthing, test) + private network"
     echo ""
   '';
 }

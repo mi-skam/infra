@@ -41,3 +41,24 @@ id_*
 *.img
 *.iso
 secrets/age-key.txt
+
+# Terraform / OpenTofu
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfstate.*.backup
+terraform/*.tfvars
+!terraform/*.tfvars.example
+terraform/crash.log
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+
+# Ansible
+ansible/*.retry
+ansible/.ansible/
+.ansible/
+ansible/facts/
+/tmp/ansible_facts

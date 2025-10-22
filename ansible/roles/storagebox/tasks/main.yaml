@@ -1,0 +1,29 @@
+---
+# Install required packages
+- name: Install cifs-utils
+  ansible.builtin.package:
+    name: cifs-utils
+    state: present
+  when: ansible_os_family in ["Debian", "RedHat"]
+
+- name: Create mount point directory
+  ansible.builtin.file:
+    path: "{{ storagebox_mount_point }}"
+    state: directory
+    mode: '0755'
+
+- name: Create credentials file
+  ansible.builtin.template:
+    src: credentials.j2
+    dest: "{{ storagebox_credentials_file }}"
+    mode: '0600'
+    owner: root
+    group: root
+
+- name: Mount Storage Box
+  ansible.posix.mount:
+    path: "{{ storagebox_mount_point }}"
+    src: "//{{ storagebox_host }}/{{ storagebox_username }}"
+    fstype: cifs
+    opts: "credentials={{ storagebox_credentials_file }},vers=3.0,file_mode=0777,dir_mode=0777,uid={{ storagebox_uid }},gid={{ storagebox_gid }}"
+    state: mounted

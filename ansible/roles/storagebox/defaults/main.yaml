@@ -1,0 +1,11 @@
+---
+# Default values for storagebox role
+storagebox_mount_point: /mnt/storagebox
+storagebox_credentials_file: /root/.storagebox-credentials
+storagebox_uid: 1000
+storagebox_gid: 1000
+
+# These should be overridden in group_vars or via vars
+storagebox_username: ""
+storagebox_password: ""
+storagebox_host: ""

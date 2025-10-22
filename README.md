@@ -1,20 +1,37 @@
 # Infrastructure as Code
 
-This repository manages infrastructure using Nix for NixOS, Home Manager, and Nix Darwin systems. It uses flake-parts for clean, modular organization across multiple hosts with shared modules.
+This repository manages infrastructure using:
+- **Nix** for NixOS, Home Manager, and Nix Darwin systems (local workstations)
+- **OpenTofu** for Hetzner Cloud infrastructure provisioning
+- **Ansible** for Debian/Rocky/Ubuntu VPS configuration management
+
+Uses flake-parts for clean, modular organization across multiple hosts with shared modules.
+
+## Features
+
+- **Hybrid Infrastructure**: Manage both NixOS systems and traditional VPS
+- **Secrets Management**: SOPS with Age encryption for all sensitive data
+- **Automated Backups**: Hetzner Storage Box integration with Mailcow backups
+- **Dynamic Inventory**: Ansible inventory automatically generated from Terraform
+- **Role-Based Grouping**: Servers grouped by role (mail, syncthing, etc.)
 
 ## Architecture
 
 The project uses **completely decoupled** configurations:
 - **System Configurations**: Handle OS-level setup, users, and system services
-- **Home Configurations**: Handle user dotfiles, applications, and personal settings  
+- **Home Configurations**: Handle user dotfiles, applications, and personal settings
 - **Development Shells**: Handle development environments
+- **Cloud Infrastructure**: OpenTofu for Hetzner Cloud resources
+- **Configuration Management**: Ansible for VPS setup and maintenance
 
 ### Module Organization
 - `modules/nixos/`: NixOS-specific system configurations
-- `modules/darwin/`: macOS-specific configurations  
+- `modules/darwin/`: macOS-specific configurations
 - `modules/home/`: Cross-platform Home Manager modules
 - `modules/users/`: System-only user account definitions
-- `secrets/`: SSH keys and other sensitive configuration
+- `terraform/`: Hetzner Cloud infrastructure as code
+- `ansible/`: VPS configuration management
+- `secrets/`: Encrypted secrets (SOPS)
 
 ## Quick Start
 
@@ -109,16 +126,53 @@ nixos-rebuild build --flake .#xmsi
 darwin-rebuild build --flake .#xbook
 ```
 
-## Hosts
-- **xmsi**: x86_64 NixOS workstation with MSI hardware profile
-- **xbook**: ARM64 Darwin machine (Apple Silicon)
+## Managed Infrastructure
+
+### Local/Development Hosts
+- **xmsi**: x86_64 NixOS workstation with MSI hardware profile (managed via Nix)
+- **xbook**: ARM64 Darwin machine (Apple Silicon) (managed via Nix)
+- **srv-01**: x86_64 NixOS local server (configuration only, not deployed)
+
+### Hetzner Cloud VPS (OpenTofu + Ansible)
+- **mail-1.prod.nbg**: Debian 12, CAX21 (ARM64, 4 cores, 8GB) - Mailcow mail server
+  - Automated nightly backups to Hetzner Storage Box
+  - Automatic updates with garbage collection
+- **syncthing-1.prod.hel**: Rocky Linux 9, CAX11 (ARM64, 2 cores, 4GB) - Syncthing
+- **test-1.dev.nbg**: Ubuntu 24.04, CAX11 (ARM64, 2 cores, 4GB) - Test environment
+
+**Network:**
+- Private network: `homelab` (10.0.0.0/16)
+- Subnet: 10.0.0.0/24 (eu-central)
+- All servers connected via private network
+
+### Hetzner Cloud Management
+
+```shell
+# View infrastructure
+just tf-output
+hcloud server list
+hcloud network list
+
+# Make infrastructure changes
+just tf-plan    # Preview changes
+just tf-apply   # Apply changes
+
+# Deploy configuration to VPS
+just ansible-ping           # Test connectivity
+just ansible-deploy deploy  # Deploy configurations
+just ansible-deploy-env prod  # Deploy only to production
+
+# Backup management
+just ansible-deploy mailcow-backup  # Run backup and setup cron
+```
 
 ## Development Tools
 The development shell provides:
-- All rebuild tools (`nixos-rebuild`, `darwin-rebuild`, `home-manager`)
-- Infrastructure management (`infra` command)
-- Secrets management (`sops`, `age`)
-- Git, direnv, and other development utilities
+- **Nix tools**: `nixos-rebuild`, `darwin-rebuild`, `home-manager`
+- **Infrastructure**: `opentofu` (Terraform), `ansible`, `hcloud` CLI
+- **Automation**: `just` task runner with common operations
+- **Secrets**: `sops`, `age` for encrypted secrets management
+- **Utilities**: `git`, `direnv`, `jq`, and other development tools
 
 ## Secrets Management
 
@@ -145,10 +199,12 @@ sops updatekeys secrets/ssh-keys.yaml
 ### Secrets Structure
 ```
 secrets/
-├── ssh-keys.yaml       # SSH private/public keys
-├── api-keys.yaml       # API tokens and keys
-└── passwords.yaml      # Passwords and credentials
+├── hetzner.yaml        # Hetzner Cloud API token
+├── storagebox.yaml     # Hetzner Storage Box credentials
+└── .sops.yaml          # SOPS configuration (age keys)
 ```
+
+**Note:** All secrets are encrypted with SOPS and safe to commit to git.
 
 ### Adding New Secrets
 1. Edit or create encrypted file: `sops secrets/filename.yaml`

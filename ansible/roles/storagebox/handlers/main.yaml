@@ -1,0 +1,3 @@
+---
+# Handlers for storagebox role
+# (mount is now handled directly by ansible.posix.mount module)

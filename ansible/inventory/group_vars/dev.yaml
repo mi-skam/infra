@@ -1,0 +1,10 @@
+# Development environment variables
+---
+# More relaxed settings for dev
+ssh_password_authentication: false
+ssh_permit_root_login: "yes"
+
+# Development tools
+additional_packages:
+  - strace
+  - tcpdump

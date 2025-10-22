@@ -1,6 +1,5 @@
 keys:
-  - &mi-skam age13un6j66l3x70f3yc4lwjuvj6d95g7aaq2xj5pjugg0m9up7jcces6xtv4u
-
+  - &mi-skam age16uelq9w6kw6wt0e5srm3vu8nsf0zqjkc9esdv4mynslf0quw93vqdp2ksj
 creation_rules:
   - path_regex: secrets/.*\.yaml$
     key_groups:

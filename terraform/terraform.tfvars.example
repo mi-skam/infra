@@ -1,0 +1,12 @@
+# Hetzner Cloud API Token
+# Get your token from: https://console.hetzner.cloud/projects
+# Store actual token in secrets/hetzner.yaml (encrypted with SOPS)
+hcloud_token = "your-hcloud-api-token-here"
+
+# SSH Key Configuration
+ssh_key_name = "homelab-hetzner"
+
+# Network Configuration
+network_name        = "homelab"
+network_ip_range    = "10.0.0.0/16"
+network_subnet_range = "10.0.0.0/24"

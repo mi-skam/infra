@@ -1,0 +1,9 @@
+# Production environment variables
+---
+# Stricter settings for production
+ssh_password_authentication: false
+ssh_permit_root_login: "prohibit-password"
+
+# Production-specific packages
+additional_packages:
+  - fail2ban

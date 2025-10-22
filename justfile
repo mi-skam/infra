@@ -3,9 +3,114 @@
 # Target directory for stow (defaults to home)
 target := env_var_or_default("STOW_TARGET", "~")
 
+# Hetzner API token from SOPS
+hcloud_token := `sops -d secrets/hetzner.yaml 2>/dev/null | grep hcloud_token | cut -d: -f2 | xargs || echo ""`
+
 # List available recipes
 @default:
     just --list
+
+# ============================================================================
+# Terraform / OpenTofu Commands
+# ============================================================================
+
+# Initialize OpenTofu/Terraform
+@tf-init:
+    cd terraform && tofu init
+
+# Plan infrastructure changes
+@tf-plan:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    tofu plan
+
+# Apply infrastructure changes
+@tf-apply:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    tofu apply
+
+# Destroy infrastructure (WARNING: destructive!)
+@tf-destroy:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    echo "⚠️  WARNING: This will destroy infrastructure!"
+    echo "Protected servers (prevent_destroy=true) will be skipped."
+    tofu destroy
+
+# Destroy specific resource (e.g., just tf-destroy-target hcloud_server.test2_dev_nbg)
+@tf-destroy-target target:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    tofu destroy -target={{target}}
+
+# Import existing Hetzner resources
+@tf-import:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    ./import.sh
+
+# Show Terraform outputs
+@tf-output:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    tofu output
+
+# Update Ansible inventory from Terraform output
+@ansible-inventory-update:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    tofu output -raw ansible_inventory > ../ansible/inventory/hosts.yaml
+    echo "Updated ansible/inventory/hosts.yaml from Terraform output"
+
+# ============================================================================
+# Ansible Commands
+# ============================================================================
+
+# Test connectivity to all servers
+@ansible-ping:
+    cd ansible && ansible all -m ping
+
+# Run Ansible playbook (e.g., just ansible-deploy bootstrap, just ansible-deploy deploy, just ansible-deploy setup-storagebox)
+@ansible-deploy playbook:
+    cd ansible && ansible-playbook playbooks/{{playbook}}.yaml
+
+# Run Ansible playbook on specific environment (e.g., just ansible-deploy-to dev bootstrap)
+@ansible-deploy-to env playbook:
+    cd ansible && ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}}
+
+# List Ansible inventory
+@ansible-inventory:
+    cd ansible && ansible-inventory --list
+
+# Run ad-hoc Ansible command
+@ansible-cmd command:
+    cd ansible && ansible all -a "{{command}}"
+
+# SSH into a server by name (e.g., just ssh test-2.dev.nbg)
+@ssh server:
+    #!/usr/bin/env bash
+    cd terraform
+    export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+    IP=$(tofu output -json servers | jq -r '.[] | select(.name == "{{server}}") | .ipv4')
+    if [ -z "$IP" ]; then
+        echo "Error: Server '{{server}}' not found"
+        echo "Available servers:"
+        tofu output -json servers | jq -r '.[].name'
+        exit 1
+    fi
+    ssh -i ~/.ssh/homelab/hetzner root@$IP
+
+# ============================================================================
+# Dotfiles Commands (existing)
+# ============================================================================
 
 # Install all dotfiles
 @install-all: install-brew install-dotfiles

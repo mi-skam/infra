@@ -1,0 +1,95 @@
+---
+# Bootstrap playbook - initial server setup
+# Usage: ansible-playbook playbooks/bootstrap.yaml
+
+- name: Bootstrap servers
+  hosts: all
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Update package cache (Debian/Ubuntu)
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Update package cache (RedHat)
+      dnf:
+        update_cache: true
+      when: ansible_os_family == "RedHat"
+
+    - name: Install common packages (Debian/Ubuntu)
+      apt:
+        name:
+          - vim
+          - htop
+          - curl
+          - wget
+          - git
+          - tmux
+          - jq
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install common packages (RedHat)
+      dnf:
+        name:
+          - vim
+          - curl
+          - wget
+          - git
+          - tmux
+          - jq
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Set timezone
+      timezone:
+        name: "{{ timezone }}"
+
+    - name: Ensure SSH directory exists
+      file:
+        path: /root/.ssh
+        state: directory
+        mode: '0700'
+        owner: root
+        group: root
+
+    - name: Configure SSH daemon
+      lineinfile:
+        path: /etc/ssh/sshd_config
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+        state: present
+      loop:
+        - { regexp: '^#?PasswordAuthentication', line: 'PasswordAuthentication {{ "yes" if ssh_password_authentication else "no" }}' }
+        - { regexp: '^#?PermitRootLogin', line: 'PermitRootLogin {{ ssh_permit_root_login }}' }
+      notify: Restart SSH
+
+    - name: Configure automatic security updates (Debian/Ubuntu)
+      apt:
+        name: unattended-upgrades
+        state: "{{ 'present' if unattended_upgrades_enabled else 'absent' }}"
+      when: ansible_os_family == "Debian"
+
+    - name: Configure automatic security updates (RedHat)
+      dnf:
+        name: dnf-automatic
+        state: "{{ 'present' if unattended_upgrades_enabled else 'absent' }}"
+      when: ansible_os_family == "RedHat"
+
+    - name: Enable dnf-automatic timer (RedHat)
+      systemd:
+        name: dnf-automatic.timer
+        enabled: true
+        state: started
+      when:
+        - ansible_os_family == "RedHat"
+        - unattended_upgrades_enabled
+
+  handlers:
+    - name: Restart SSH
+      service:
+        name: "{{ 'ssh' if ansible_os_family == 'Debian' else 'sshd' }}"
+        state: restarted

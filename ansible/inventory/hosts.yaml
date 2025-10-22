@@ -1,0 +1,38 @@
+"all":
+  "hosts":
+    "mail-1.prod.nbg":
+      "ansible_host": "116.203.236.40"
+      "env": "prod"
+      "os_family": "debian"
+      "private_ip": "10.0.0.3"
+      "public_ipv4": "116.203.236.40"
+      "role": "mail"
+    "syncthing-1.prod.hel":
+      "ansible_host": "95.216.209.223"
+      "env": "prod"
+      "os_family": "redhat"
+      "private_ip": "10.0.0.2"
+      "public_ipv4": "95.216.209.223"
+      "role": "syncthing"
+    "test-1.dev.nbg":
+      "ansible_host": "5.75.134.87"
+      "env": "dev"
+      "os_family": "debian"
+      "private_ip": "10.0.0.4"
+      "public_ipv4": "5.75.134.87"
+      "role": "test"
+  "vars":
+    "ansible_python_interpreter": "/usr/bin/python3"
+    "ansible_ssh_common_args": "-o StrictHostKeyChecking=no"
+    "ansible_ssh_private_key_file": "~/.ssh/homelab/hetzner"
+    "ansible_user": "root"
+"dev":
+  "hosts":
+    "test-1.dev.nbg": {}
+"mail":
+  "hosts":
+    "mail-1.prod.nbg": {}
+"prod":
+  "hosts":
+    "mail-1.prod.nbg": {}
+    "syncthing-1.prod.hel": {}

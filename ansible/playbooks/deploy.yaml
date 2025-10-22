@@ -1,0 +1,23 @@
+---
+# Main deployment playbook
+# Usage: ansible-playbook playbooks/deploy.yaml
+
+- name: Deploy configurations
+  hosts: all
+  become: true
+  gather_facts: true
+
+  roles:
+    - common
+    # - monitoring  # Uncomment when ready
+
+  tasks:
+    - name: Display server information
+      debug:
+        msg: |
+          Host: {{ inventory_hostname }}
+          Environment: {{ environment }}
+          Role: {{ role }}
+          OS Family: {{ ansible_os_family }}
+          Private IP: {{ ansible_host }}
+          Public IPv4: {{ public_ipv4 }}

@@ -1,0 +1,25 @@
+# Global variables for all hosts
+---
+# Timezone configuration
+timezone: Europe/Berlin
+
+# Common packages to install on all servers
+common_packages:
+  - vim
+  - htop
+  - curl
+  - wget
+  - git
+  - tmux
+  - jq
+
+# Firewall defaults (ufw for Debian/Ubuntu, firewalld for Rocky)
+firewall_allowed_ports:
+  - 22  # SSH
+
+# Automatic security updates
+unattended_upgrades_enabled: true
+
+# Storage Box configuration (loaded from encrypted secrets)
+# These are loaded in the playbook using vars_files
+storagebox_mount_point: /mnt/storagebox
