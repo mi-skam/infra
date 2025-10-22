@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Default values
+CONTEXT_LINES=0
+OUTPUT_FORMAT="matches"
+
+# Function to show usage
+show_usage() {
+    echo "Usage: $0 [OPTIONS] <query>"
+    echo "       <command> | $0 [OPTIONS] <query>"
+    echo ""
+    echo "Semantic search using Claude AI"
+    echo ""
+    echo "Options:"
+    echo "  -c, --context N    Show N lines of context around matches"
+    echo "  -f, --format FMT   Output format: matches (default), summary, explain"
+    echo "  -h, --help         Show this help message"
+    echo ""
+    echo "Examples:"
+    echo "  $0 'functions that handle authentication'"
+    echo "  git diff | $0 'potential bugs'"
+    echo "  cat error.log | $0 'what caused this error?'"
+    echo "  rg 'TODO' | $0 'which ones are critical?'"
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -c|--context)
+            CONTEXT_LINES="$2"
+            shift 2
+            ;;
+        -f|--format)
+            OUTPUT_FORMAT="$2"
+            shift 2
+            ;;
+        -h|--help)
+            show_usage
+            exit 0
+            ;;
+        -*)
+            echo "Unknown option: $1"
+            show_usage
+            exit 1
+            ;;
+        *)
+            QUERY="$*"
+            break
+            ;;
+    esac
+done
+
+# Check if query was provided
+if [ -z "$QUERY" ]; then
+    echo "Error: No search query provided"
+    show_usage
+    exit 1
+fi
+
+# Read input (either from pipe or files)
+if [ -t 0 ]; then
+    # No pipe input - search current directory
+    echo "🔍 Searching current directory for: $QUERY"
+    INPUT=$(fd -t f -H | head -50 | xargs rg -Hn . 2>/dev/null | head -1000)
+else
+    # Read from pipe
+    INPUT=$(cat)
+fi
+
+# Check if we have any input
+if [ -z "$INPUT" ]; then
+    echo "No input to search"
+    exit 1
+fi
+
+# Prepare the prompt based on format
+case $OUTPUT_FORMAT in
+    summary)
+        PROMPT="Analyze this content and answer the query: '$QUERY'
+
+Provide a concise summary of your findings.
+
+Content to analyze:
+$INPUT"
+        ;;
+    explain)
+        PROMPT="Analyze this content and answer the query: '$QUERY'
+
+Provide a detailed explanation of what you found and why it's relevant.
+
+Content to analyze:
+$INPUT"
+        ;;
+    *)  # matches (default)
+        PROMPT="Search through this content for: '$QUERY'
+
+Instructions:
+- Find lines/sections that match the semantic meaning of the query
+- Output ONLY the relevant matches, one per line
+- Include line numbers if present in the input
+- If context was requested (${CONTEXT_LINES} lines), include surrounding context
+- Be selective - only show truly relevant matches
+- Preserve the original formatting of matched lines
+
+Content to search:
+$INPUT"
+        ;;
+esac
+
+# Call Claude
+echo "🤖 Analyzing with Claude..."
+echo ""
+
+# Check if claude command is available
+if ! command -v claude &> /dev/null; then
+    echo "❌ Error: 'claude' command not found. Please install Claude CLI."
+    exit 1
+fi
+
+CLAUDE_OUTPUT=$(claude -p "$PROMPT")
+
+# Display results
+if [ -z "$CLAUDE_OUTPUT" ]; then
+    echo "❌ No matches found"
+    exit 1
+else
+    echo "$CLAUDE_OUTPUT"
+fi

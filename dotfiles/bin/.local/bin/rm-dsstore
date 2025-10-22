@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+set -euo pipefail
+fd -H -I '.DS_Store' -x rm

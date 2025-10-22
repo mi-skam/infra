@@ -1,0 +1,50 @@
+#!/usr/bin/env fish
+
+# Check if a request was provided
+if test (count $argv) -eq 0
+    echo "Usage: "(basename (status current-filename))" <request>"
+    echo "Example: "(basename (status current-filename))" 'can you help me stash the git ignore that I'm not using'"
+    exit 1
+end
+
+# Combine all arguments into a single request string
+set REQUEST (string join " " $argv)
+
+# Call Claude to get a bash command suggestion
+echo "> Asking Claude for a command suggestion..."
+echo ""
+
+# Use Claude to get the command, asking specifically for just the command
+set CLAUDE_OUTPUT (claude -p "The user wants to: $REQUEST
+
+Please provide ONLY the bash command that would accomplish this task. Do not include any explanation, markdown formatting, or additional text. Just output the raw command.")
+
+# Extract the command (remove any leading/trailing whitespace)
+set SUGGESTED_CMD (string trim $CLAUDE_OUTPUT)
+
+# Check if we got a command
+if test -z "$SUGGESTED_CMD"
+    echo "Claude didn't provide a command suggestion."
+    exit 1
+end
+
+# Display the suggested command
+echo "Suggested command:"
+echo ""
+echo "  $SUGGESTED_CMD"
+echo ""
+
+# Ask user for confirmation
+read -P "Execute this command? (y/n): " -n 1 REPLY
+echo ""
+
+if string match -q -i "y" $REPLY
+    echo ""
+    echo "Executing command..."
+    eval $SUGGESTED_CMD
+    set EXIT_CODE $status
+    echo "Command completed with exit code: $EXIT_CODE"
+else
+    echo ""
+    echo "Command not executed."
+end

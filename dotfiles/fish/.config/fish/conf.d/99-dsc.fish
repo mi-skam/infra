@@ -1,0 +1,1 @@
+dsc completer fish | source

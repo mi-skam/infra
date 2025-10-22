@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euxo pipefail
+
+current_branch=$(git branch | rg '\*' | sed 's/\* //')
+
+if git branch | rg -q master; then
+  main_branch='master'
+else
+  main_branch='main'
+fi
+
+if [ $current_branch == $main_branch ]; then
+  echo "Not destroying $main_branch"
+  exit 1
+fi
+
+if [[ `git status --porcelain` != '' ]]; then
+  echo 'Dirty branch, exiting'
+  exit 1
+fi
+
+git checkout $main_branch
+
+git fetch --all --prune
+git pull origin $main_branch --rebase --autostash
+
+git br -D $current_branch

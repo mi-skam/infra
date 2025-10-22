@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+# Interactively rebase current branch against the relevant "master".
+# * If you're on master rebase against origin/master.
+# * If you're on any other local branch rebase against master
+#   or a branch specified as an argument.
+
+set -euo pipefail
+
+CURRENT=$(git branch | rg '\*' | rg -o '\S+$')
+
+if git branch | rg -q master; then
+  main_branch='master'
+else
+  main_branch='main'
+fi
+
+if [ "$CURRENT" = "$main_branch" ]; then
+  git rebase -i origin/$main_branch
+else
+  if [ "$1" ]; then
+    git rebase -i "$1"
+  else
+    git rebase -i $main_branch
+  fi
+fi

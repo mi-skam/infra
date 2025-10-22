@@ -1,0 +1,11 @@
+alias ..='cd ..'
+alias ...='cd ../..'
+alias lg='lazygit'
+alias l='eza'
+alias ls='ls'
+alias ll="eza -l"
+alias rf='rm -rf'
+alias tree='eza --tree'
+alias v="nvim"
+alias vimdiff='nvim -d'
+alias claude-yolo='claude --dangerously-skip-permissions'
