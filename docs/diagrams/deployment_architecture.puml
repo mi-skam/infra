@@ -1,0 +1,94 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+' Deployment Diagram - Infrastructure Physical Topology
+' This diagram shows the complete physical infrastructure deployment including:
+' - Local systems (xbook, xmsi, srv-01) managed via Nix Flakes
+' - Hetzner Cloud VPS (mail-1, syncthing-1, test-1) provisioned via OpenTofu and configured via Ansible
+' - Private network topology (10.0.0.0/16) connecting cloud VPS systems
+' - Hardware specifications (CAX11/CAX21 instance types, ARM64/x86_64 architectures)
+' - Deployment tool responsibilities and network connections (SSH, HTTPS)
+
+LAYOUT_WITH_LEGEND()
+
+title Deployment Architecture - Physical Infrastructure and Network Topology
+
+Person(operator, "Infrastructure Operator", "DevOps engineer managing infrastructure via Nix, OpenTofu, and Ansible")
+
+' Local Development Environment
+Deployment_Node(local_env, "Local Environment", "Developer Workstation and Local Servers") {
+
+  Deployment_Node(xbook_machine, "xbook", "macOS ARM64 (aarch64-darwin)") {
+    System(xbook_system, "Darwin System", "Desktop workstation managed via Nix Flakes and Home Manager")
+  }
+
+  Deployment_Node(xmsi_machine, "xmsi", "x86_64 NixOS") {
+    System(xmsi_system, "NixOS Desktop", "MSI desktop workstation with Plasma KDE, managed via Nix Flakes")
+  }
+
+  Deployment_Node(srv01_machine, "srv-01", "x86_64 NixOS") {
+    System(srv01_system, "NixOS Server", "Local server (configuration only, not deployed)")
+  }
+}
+
+' Hetzner Cloud - Nuremberg Datacenter
+Deployment_Node(hetzner_nbg, "Hetzner Datacenter NBG1", "Nuremberg, Germany\nPrivate Network: 10.0.0.0/16 (homelab)\nSubnet: 10.0.0.0/24 (eu-central)") {
+
+  Deployment_Node(mail_node, "mail-1.prod.nbg", "Debian 12, CAX21\nARM64, 4 vCPU, 8GB RAM\nPrivate IP: 10.0.0.3\nPublic IPv4/IPv6") {
+    System(mail_system, "Mail Server", "Production mail server provisioned via OpenTofu, configured via Ansible")
+  }
+
+  Deployment_Node(test_node, "test-1.dev.nbg", "Ubuntu 24.04, CAX11\nARM64, 2 vCPU, 4GB RAM\nPrivate IP: 10.0.0.4\nPublic IPv4/IPv6") {
+    System(test_system, "Test Server", "Development test environment provisioned via OpenTofu, configured via Ansible")
+  }
+}
+
+' Hetzner Cloud - Helsinki Datacenter
+Deployment_Node(hetzner_hel, "Hetzner Datacenter HEL1", "Helsinki, Finland\nPrivate Network: 10.0.0.0/16 (homelab)\nSubnet: 10.0.0.0/24 (eu-central)") {
+
+  Deployment_Node(syncthing_node, "syncthing-1.prod.hel", "Rocky Linux 9, CAX11\nARM64, 2 vCPU, 4GB RAM\nPrivate IP: 10.0.0.2\nPublic IPv4/IPv6") {
+    System(syncthing_system, "Syncthing Server", "Production file synchronization server provisioned via OpenTofu, configured via Ansible")
+  }
+}
+
+' Deployment Management Tools
+Deployment_Node(deployment_tools, "Deployment Tools", "Infrastructure as Code Tools") {
+  System(nix_flakes, "Nix Flakes", "Manages NixOS and Darwin system configurations")
+  System(opentofu, "OpenTofu", "Provisions Hetzner Cloud infrastructure via Hetzner API")
+  System(ansible, "Ansible", "Configures VPS systems over SSH")
+}
+
+' Operator to Tools
+Rel(operator, nix_flakes, "Deploys local systems via", "nixos-rebuild/darwin-rebuild CLI")
+Rel(operator, opentofu, "Provisions cloud infrastructure via", "tofu CLI")
+Rel(operator, ansible, "Configures VPS systems via", "ansible-playbook CLI")
+
+' Nix Flakes to Local Systems
+Rel(nix_flakes, xbook_system, "Deploys system config to", "darwin-rebuild switch")
+Rel(nix_flakes, xmsi_system, "Deploys system config to", "nixos-rebuild switch")
+Rel(nix_flakes, srv01_system, "Deploys system config to", "nixos-rebuild switch")
+
+' OpenTofu to Hetzner VPS
+Rel(opentofu, mail_system, "Provisions infrastructure via", "Hetzner Cloud API (HTTPS/REST)")
+Rel(opentofu, syncthing_system, "Provisions infrastructure via", "Hetzner Cloud API (HTTPS/REST)")
+Rel(opentofu, test_system, "Provisions infrastructure via", "Hetzner Cloud API (HTTPS/REST)")
+
+' Ansible to Hetzner VPS
+Rel(ansible, mail_system, "Configures system via", "SSH (port 22, private network 10.0.0.3)")
+Rel(ansible, syncthing_system, "Configures system via", "SSH (port 22, private network 10.0.0.2)")
+Rel(ansible, test_system, "Configures system via", "SSH (port 22, private network 10.0.0.4)")
+
+' Private Network Connections (Hetzner Cloud VPS)
+Rel(mail_system, syncthing_system, "Private network communication", "VLAN 10.0.0.0/24")
+Rel(mail_system, test_system, "Private network communication", "VLAN 10.0.0.0/24")
+Rel(syncthing_system, test_system, "Private network communication", "VLAN 10.0.0.0/24")
+
+' Operator SSH Access
+Rel(operator, xbook_system, "SSH access", "Local")
+Rel(operator, xmsi_system, "SSH access", "Local")
+Rel(operator, srv01_system, "SSH access", "Local")
+Rel(operator, mail_system, "SSH access", "Public IP or private network")
+Rel(operator, syncthing_system, "SSH access", "Public IP or private network")
+Rel(operator, test_system, "SSH access", "Public IP or private network")
+
+@enduml
