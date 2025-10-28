@@ -1,0 +1,123 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+' Component Diagram - Infrastructure Management System Overview
+' This diagram shows the major system components and their interactions at C4 Level 3.
+' Includes: Nix Flakes Manager, OpenTofu Provisioner, Ansible Configurator, Secrets Manager,
+' Task Orchestrator, and their associated data stores and communication patterns.
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram - Infrastructure Management System Overview
+
+Person(operator, "Infrastructure Operator", "DevOps engineer managing infrastructure")
+
+System_Boundary(iac_system, "Infrastructure Management System") {
+
+  ' Task Orchestrator Components
+  Container_Boundary(task_orchestrator, "Task Orchestrator") {
+    Component(just_executor, "Just Recipe Executor", "just CLI", "Parses justfile, executes recipes, manages task dependencies")
+    Component(command_router, "Command Router", "Bash scripts", "Routes commands to appropriate tools (Nix, OpenTofu, Ansible, SOPS)")
+    Component(env_loader, "Environment Loader", "Shell environment", "Loads secrets as environment variables, manages tool paths")
+  }
+
+  ' Nix Flakes Manager Components
+  Container_Boundary(nix_manager, "Nix Flakes Manager") {
+    Component(flake_evaluator, "Flake Evaluator", "Nix evaluator", "Evaluates flake.nix, resolves inputs, locks dependencies")
+    Component(system_builder, "System Builder", "NixOS/Darwin", "Builds OS configurations, manages system packages and services")
+    Component(home_builder, "Home Builder", "Home Manager", "Builds user configurations, dotfiles, user applications")
+    Component(module_resolver, "Module Resolver", "Nix module system", "Resolves module imports, merges configurations, validates options")
+  }
+
+  ' OpenTofu Provisioner Components
+  Container_Boundary(tofu_provisioner, "OpenTofu Provisioner") {
+    Component(hcl_parser, "HCL Parser", "OpenTofu parser", "Parses Terraform .tf files, validates syntax, resolves variables")
+    Component(plan_engine, "Plan Engine", "OpenTofu planner", "Compares desired vs current state, generates execution plan")
+    Component(resource_provisioner, "Resource Provisioner", "Hetzner provider", "Provisions cloud resources via Hetzner API")
+    Component(state_manager, "State Manager", "Terraform state", "Manages state file, tracks resource mappings, handles locking")
+  }
+
+  ' Ansible Configurator Components
+  Container_Boundary(ansible_configurator, "Ansible Configurator") {
+    Component(inventory_loader, "Inventory Loader", "Ansible inventory", "Loads inventory from Terraform outputs, applies group variables")
+    Component(playbook_executor, "Playbook Executor", "Ansible core", "Executes playbooks, manages task ordering, handles conditionals")
+    Component(module_runner, "Module Runner", "Ansible modules", "Runs system modules (apt, yum, systemd, copy, template)")
+    Component(ssh_transport, "SSH Transport", "Paramiko/OpenSSH", "Establishes SSH connections, executes remote commands")
+  }
+
+  ' Secrets Manager Components
+  Container_Boundary(secrets_manager, "Secrets Manager") {
+    Component(sops_engine, "SOPS Engine", "SOPS CLI", "Encrypts/decrypts YAML files using age public-key cryptography")
+    Component(age_crypto, "Age Crypto", "age library", "Handles age encryption/decryption, key management")
+    Component(secrets_loader, "Secrets Loader", "sops-nix", "Loads decrypted secrets into Nix configurations at build time")
+  }
+
+  ' Data Stores
+  ContainerDb(git_repo, "Git Repository", "Git VCS", "Version-controlled configurations: flake.nix, Terraform modules, Ansible playbooks")
+  ContainerDb(terraform_state, "Terraform State", "JSON file", "Tracks Hetzner Cloud resource state and metadata")
+  ContainerDb(encrypted_secrets, "Encrypted Secrets", "SOPS YAML", "Age-encrypted secrets: users.yaml, hetzner.yaml, ssh-keys.yaml")
+  ContainerDb(ansible_facts_cache, "Ansible Facts Cache", "JSON cache", "Cached system facts for performance optimization")
+}
+
+' External Systems
+System_Ext(nixpkgs, "Nixpkgs Registry", "Package repository")
+System_Ext(hetzner_api, "Hetzner Cloud API", "Cloud provider API")
+System_Ext(local_systems, "Local/NixOS Systems", "Workstations and servers")
+System_Ext(cloud_vps, "Hetzner Cloud VPS", "Remote managed servers")
+
+' Operator to Task Orchestrator
+Rel(operator, just_executor, "Executes tasks via", "CLI commands")
+Rel(just_executor, command_router, "Routes to appropriate tool", "Function calls")
+Rel(command_router, env_loader, "Requests environment setup", "Shell sourcing")
+
+' Task Orchestrator to Tools
+Rel(command_router, flake_evaluator, "Invokes for builds", "nix CLI")
+Rel(command_router, hcl_parser, "Invokes for infrastructure", "tofu CLI")
+Rel(command_router, inventory_loader, "Invokes for configuration", "ansible-playbook CLI")
+Rel(command_router, sops_engine, "Invokes for secrets", "sops CLI")
+
+' Nix Flakes Manager Internal
+Rel(flake_evaluator, module_resolver, "Evaluates modules with", "Nix evaluator")
+Rel(module_resolver, system_builder, "Passes system configs to", "Attribute sets")
+Rel(module_resolver, home_builder, "Passes home configs to", "Attribute sets")
+
+' Nix Flakes Manager to External
+Rel(flake_evaluator, git_repo, "Reads flake.nix and modules from", "File system")
+Rel(flake_evaluator, nixpkgs, "Fetches packages from", "HTTPS")
+Rel(module_resolver, secrets_loader, "Requests secrets via", "sops-nix integration")
+Rel(secrets_loader, sops_engine, "Decrypts secrets using", "CLI invocation")
+Rel(system_builder, local_systems, "Deploys configurations to", "nixos-rebuild/darwin-rebuild")
+Rel(home_builder, local_systems, "Deploys user configs to", "home-manager switch")
+
+' OpenTofu Provisioner Internal
+Rel(hcl_parser, plan_engine, "Provides parsed config to", "AST")
+Rel(plan_engine, state_manager, "Compares against state", "State queries")
+Rel(plan_engine, resource_provisioner, "Executes plan with", "Provider operations")
+
+' OpenTofu Provisioner to External
+Rel(hcl_parser, git_repo, "Reads .tf modules from", "File system")
+Rel(state_manager, terraform_state, "Reads/writes state to", "JSON file I/O")
+Rel(resource_provisioner, hetzner_api, "Provisions resources via", "HTTPS/REST")
+Rel(env_loader, sops_engine, "Loads Hetzner token from", "Environment variable injection")
+Rel(resource_provisioner, state_manager, "Updates state after operations", "State mutations")
+
+' Ansible Configurator Internal
+Rel(inventory_loader, playbook_executor, "Provides inventory to", "Inventory API")
+Rel(playbook_executor, module_runner, "Executes tasks via", "Module execution")
+Rel(module_runner, ssh_transport, "Runs commands via", "SSH protocol")
+
+' Ansible Configurator to External
+Rel(inventory_loader, git_repo, "Reads inventory files from", "YAML parsing")
+Rel(inventory_loader, plan_engine, "Queries Terraform outputs from", "tofu output command")
+Rel(playbook_executor, git_repo, "Reads playbooks/roles from", "File system")
+Rel(playbook_executor, ansible_facts_cache, "Caches facts to", "JSON writes")
+Rel(ssh_transport, cloud_vps, "Configures systems via", "SSH (port 22, private network)")
+
+' Secrets Manager Internal
+Rel(sops_engine, age_crypto, "Uses for encryption/decryption", "Library calls")
+Rel(age_crypto, encrypted_secrets, "Encrypts/decrypts files", "SOPS operations")
+
+' Secrets Manager to External
+Rel(sops_engine, operator, "Requires age private key from", "~/.config/sops/age/keys.txt")
+
+@enduml
