@@ -62,3 +62,6 @@ ansible/.ansible/
 .ansible/
 ansible/facts/
 /tmp/ansible_facts
+
+# Claude Code
+.codemachine/

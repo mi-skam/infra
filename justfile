@@ -94,16 +94,23 @@ hcloud_token := `sops -d secrets/hetzner.yaml 2>/dev/null | grep hcloud_token | 
 @ansible-cmd command:
     cd ansible && ansible all -a "{{command}}"
 
-# SSH into a server by name (e.g., just ssh test-2.dev.nbg)
-@ssh server:
+# SSH into a server by name (e.g., just ssh test-2.dev.nbg) or list all servers if no argument
+@ssh server="":
     #!/usr/bin/env bash
     cd terraform
     export TF_VAR_hcloud_token="$(sops -d ../secrets/hetzner.yaml | grep 'hcloud:' | cut -d: -f2 | xargs)"
+
+    if [ -z "{{server}}" ]; then
+        echo "Available servers:"
+        tofu output -json servers | jq -r '.[] | "  → \(.name) (\(.ipv4))"'
+        exit 0
+    fi
+
     IP=$(tofu output -json servers | jq -r '.[] | select(.name == "{{server}}") | .ipv4')
     if [ -z "$IP" ]; then
         echo "Error: Server '{{server}}' not found"
         echo "Available servers:"
-        tofu output -json servers | jq -r '.[].name'
+        tofu output -json servers | jq -r '.[] | "  → \(.name) (\(.ipv4))"'
         exit 1
     fi
     ssh -i ~/.ssh/homelab/hetzner root@$IP
