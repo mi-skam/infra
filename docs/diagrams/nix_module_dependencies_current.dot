@@ -1,0 +1,135 @@
+digraph nix_modules {
+  # Graph settings
+  rankdir=TB;
+  node [shape=box, style=filled, fillcolor=lightblue];
+
+  # NixOS Modules
+  subgraph cluster_nixos {
+    label="NixOS Modules";
+    style=filled;
+    color=lightgrey;
+
+    nixos_common [label="nixos/common.nix"];
+    nixos_desktop [label="nixos/desktop.nix"];
+    nixos_plasma [label="nixos/plasma.nix"];
+    nixos_server [label="nixos/server.nix"];
+    nixos_secrets [label="nixos/secrets.nix"];
+    nixos_mullvad [label="nixos/mullvad-vpn.nix"];
+  }
+
+  # Darwin Modules
+  subgraph cluster_darwin {
+    label="Darwin Modules";
+    style=filled;
+    color=lightgrey;
+
+    darwin_common [label="darwin/common.nix"];
+    darwin_desktop [label="darwin/desktop.nix"];
+    darwin_secrets [label="darwin/secrets.nix"];
+  }
+
+  # Home Manager Modules
+  subgraph cluster_hm {
+    label="Home Manager Modules";
+    style=filled;
+    color=lightgrey;
+
+    hm_common [label="hm/common.nix"];
+    hm_desktop [label="hm/desktop.nix"];
+    hm_dev [label="hm/dev.nix"];
+    hm_ssh [label="hm/ssh.nix"];
+    hm_syncthing [label="hm/syncthing.nix"];
+    hm_secrets [label="hm/secrets.nix"];
+    hm_wireguard [label="hm/wireguard.nix"];
+    hm_qbittorrent [label="hm/qbittorrent.nix"];
+    hm_ghostty [label="hm/ghostty.nix"];
+  }
+
+  # Home Manager User Configs
+  subgraph cluster_hm_users {
+    label="Home Manager Users";
+    style=filled;
+    color=lightyellow;
+
+    hm_user_mi_skam [label="hm/users/mi-skam.nix"];
+    hm_user_plumps [label="hm/users/plumps.nix"];
+  }
+
+  # System User Configs
+  subgraph cluster_users {
+    label="System Users";
+    style=filled;
+    color=lightyellow;
+
+    user_mi_skam [label="users/mi-skam.nix"];
+    user_plumps [label="users/plumps.nix"];
+  }
+
+  # External Modules
+  subgraph cluster_external {
+    label="External Inputs";
+    style=filled;
+    color=lightcyan;
+    node [shape=ellipse, fillcolor=lightcyan];
+
+    srvos_common [label="srvos.nixosModules.common"];
+    srvos_desktop [label="srvos.nixosModules.desktop"];
+    srvos_server [label="srvos.nixosModules.server"];
+    sops_nix_nixos [label="sops-nix.nixosModules.sops"];
+    sops_nix_darwin [label="sops-nix.darwinModules.sops"];
+    sops_nix_hm [label="sops-nix.homeManagerModules.sops"];
+  }
+
+  # NixOS Dependencies
+  nixos_common -> srvos_common;
+  nixos_common -> sops_nix_nixos;
+  nixos_common -> nixos_secrets;
+  nixos_common -> user_mi_skam;
+  nixos_common -> user_plumps;
+
+  nixos_desktop -> srvos_desktop;
+  nixos_desktop -> nixos_common;
+  nixos_desktop -> nixos_mullvad;
+
+  nixos_plasma -> nixos_desktop;
+
+  nixos_server -> srvos_server;
+  nixos_server -> nixos_common;
+
+  # Darwin Dependencies
+  darwin_common -> sops_nix_darwin;
+  darwin_common -> darwin_secrets;
+  darwin_common -> user_plumps;
+
+  darwin_desktop -> darwin_common;
+
+  # Home Manager Dependencies
+  hm_common -> sops_nix_hm;
+  hm_common -> hm_syncthing;
+  hm_common -> hm_ssh;
+  hm_common -> hm_secrets;
+
+  hm_desktop -> hm_common;
+  hm_desktop -> hm_qbittorrent;
+  hm_desktop -> hm_ghostty;
+
+  hm_dev -> hm_common;
+
+  # Legend
+  subgraph cluster_legend {
+    label="Legend";
+    style=filled;
+    color=white;
+    node [shape=plaintext];
+
+    legend [label=<
+      <table border="0" cellborder="1" cellspacing="0">
+        <tr><td><b>Import Type</b></td><td><b>Meaning</b></td></tr>
+        <tr><td>Box (blue)</td><td>Internal module</td></tr>
+        <tr><td>Ellipse (cyan)</td><td>External input</td></tr>
+        <tr><td>Yellow background</td><td>User configurations</td></tr>
+        <tr><td>Arrow</td><td>Import/dependency</td></tr>
+      </table>
+    >];
+  }
+}
