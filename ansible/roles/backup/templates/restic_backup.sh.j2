@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# {{ ansible_managed }}
+# restic backup script for {{ ansible_hostname }}
+
+set -euo pipefail
+
+# Configuration
+export RESTIC_REPOSITORY="{{ restic_repository_path }}"
+export RESTIC_PASSWORD="{{ restic_repository_password }}"
+
+# Logging
+LOG_FILE="/var/log/restic-backup.log"
+exec 1> >(tee -a "$LOG_FILE")
+exec 2>&1
+
+echo "=== Backup started at $(date) ==="
+
+{% if backup_pre_hook %}
+# Pre-backup hook
+echo "Running pre-backup hook..."
+{{ backup_pre_hook }}
+{% endif %}
+
+# Backup paths
+BACKUP_PATHS=(
+{% for path in backup_paths %}
+  "{{ path }}"
+{% endfor %}
+)
+
+# Exclusions
+EXCLUDE_ARGS=(
+{% for pattern in backup_exclude_patterns %}
+  --exclude="{{ pattern }}"
+{% endfor %}
+)
+
+# Perform backup
+echo "Starting backup of ${BACKUP_PATHS[*]}..."
+if restic backup "${BACKUP_PATHS[@]}" "${EXCLUDE_ARGS[@]}" \
+  --tag="{{ ansible_hostname }}" \
+  --tag="automated"; then
+  echo "Backup completed successfully"
+else
+  echo "ERROR: Backup failed with exit code $?"
+  exit 1
+fi
+
+# Cleanup old snapshots
+echo "Applying retention policy..."
+restic forget \
+  --keep-daily {{ backup_retention_daily }} \
+  --keep-weekly {{ backup_retention_weekly }} \
+  --keep-monthly {{ backup_retention_monthly }} \
+  --keep-yearly {{ backup_retention_yearly }} \
+  --tag="{{ ansible_hostname }}" \
+  --prune
+
+# Verify repository integrity (once per week on Sundays)
+if [ "$(date +%u)" -eq 7 ]; then
+  echo "Running weekly repository check..."
+  restic check
+fi
+
+{% if backup_post_hook %}
+# Post-backup hook
+echo "Running post-backup hook..."
+{{ backup_post_hook }}
+{% endif %}
+
+echo "=== Backup finished at $(date) ==="

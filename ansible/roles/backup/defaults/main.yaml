@@ -1,0 +1,44 @@
+---
+# Backup role default variables
+
+# restic installation
+restic_install_method: package  # package or binary
+restic_version: latest
+
+# restic repository configuration
+restic_repository_type: sftp
+restic_repository_path: "{{ storagebox_mount_point }}/restic-repo"
+restic_repository_password: ""  # MUST be provided via group_vars or vault
+
+# Backup schedule
+backup_schedule_time: "02:00"
+backup_schedule_randomized_delay: "1h"
+
+# Retention policy
+backup_retention_daily: 7
+backup_retention_weekly: 4
+backup_retention_monthly: 12
+backup_retention_yearly: 2
+
+# Backup paths (override per host)
+backup_paths: []
+
+# Backup exclusions
+backup_exclude_patterns:
+  - "*.tmp"
+  - "*.cache"
+  - "/tmp/*"
+  - "/var/tmp/*"
+
+# Notification settings
+backup_enable_notifications: false
+backup_notification_email: ""
+
+# Script and service paths
+backup_script_path: /usr/local/bin/restic_backup.sh
+backup_service_name: restic-backup
+backup_timer_name: restic-backup.timer
+
+# Pre/post backup hooks (optional scripts to run)
+backup_pre_hook: ""
+backup_post_hook: ""

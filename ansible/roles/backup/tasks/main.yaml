@@ -1,0 +1,114 @@
+---
+# Backup role tasks
+
+- name: Validate required variables
+  ansible.builtin.assert:
+    that:
+      - restic_repository_password is defined
+      - restic_repository_password | length > 0
+      - backup_paths | length > 0
+    fail_msg: "restic_repository_password and backup_paths must be defined"
+    success_msg: "Required variables are defined"
+  tags: [backup, validate]
+
+- name: Install restic (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: restic
+    state: "{{ 'latest' if restic_version == 'latest' else 'present' }}"
+    update_cache: true
+  when:
+    - ansible_os_family == "Debian"
+    - restic_install_method == "package"
+  tags: [backup, install]
+
+- name: Install restic (RHEL/Rocky)
+  ansible.builtin.dnf:
+    name: restic
+    state: "{{ 'latest' if restic_version == 'latest' else 'present' }}"
+  when:
+    - ansible_os_family == "RedHat"
+    - restic_install_method == "package"
+  tags: [backup, install]
+
+- name: Check if restic repository exists
+  ansible.builtin.stat:
+    path: "{{ restic_repository_path }}/config"
+  register: restic_repo_config
+  tags: [backup, configure]
+
+- name: Initialize restic repository
+  ansible.builtin.shell:
+    cmd: |
+      export RESTIC_REPOSITORY="{{ restic_repository_path }}"
+      export RESTIC_PASSWORD="{{ restic_repository_password }}"
+      restic init
+    creates: "{{ restic_repository_path }}/config"
+  when: not restic_repo_config.stat.exists
+  no_log: true
+  tags: [backup, configure]
+
+- name: Create backup script
+  ansible.builtin.template:
+    src: restic_backup.sh.j2
+    dest: "{{ backup_script_path }}"
+    mode: '0750'
+    owner: root
+    group: root
+  tags: [backup, configure]
+
+- name: Create systemd service unit
+  ansible.builtin.template:
+    src: restic_backup.service.j2
+    dest: "/etc/systemd/system/{{ backup_service_name }}.service"
+    mode: '0644'
+  notify: Reload systemd
+  tags: [backup, configure]
+
+- name: Create systemd timer unit
+  ansible.builtin.template:
+    src: restic_backup.timer.j2
+    dest: "/etc/systemd/system/{{ backup_timer_name }}"
+    mode: '0644'
+  notify: Reload systemd
+  tags: [backup, configure]
+
+- name: Enable and start backup timer
+  ansible.builtin.systemd:
+    name: "{{ backup_timer_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [backup, configure]
+
+- name: Create log file
+  ansible.builtin.file:
+    path: /var/log/restic-backup.log
+    state: touch
+    mode: '0644'
+    owner: root
+    group: root
+    modification_time: preserve
+    access_time: preserve
+  tags: [backup, configure]
+
+- name: Test backup configuration
+  ansible.builtin.command:
+    cmd: restic --repo {{ restic_repository_path }} snapshots
+  environment:
+    RESTIC_PASSWORD: "{{ restic_repository_password }}"
+  register: restic_test
+  changed_when: false
+  failed_when: false
+  no_log: true
+  tags: [backup, test]
+
+- name: Display backup configuration status
+  ansible.builtin.debug:
+    msg:
+      - "Backup role configured successfully"
+      - "Repository: {{ restic_repository_path }}"
+      - "Schedule: Daily at {{ backup_schedule_time }}"
+      - "Retention: {{ backup_retention_daily }}d/{{ backup_retention_weekly }}w/{{ backup_retention_monthly }}m/{{ backup_retention_yearly }}y"
+      - "Paths to backup: {{ backup_paths | join(', ') }}"
+      - "Timer status: Use 'systemctl status {{ backup_timer_name }}' to check"
+  tags: [backup, test]

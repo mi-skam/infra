@@ -1,0 +1,30 @@
+---
+galaxy_info:
+  role_name: backup
+  author: mi-skam
+  description: Configure restic backups to Hetzner Storage Box with automated scheduling
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - backup
+    - restic
+    - disaster-recovery
+    - storage
+    - automation
+
+dependencies:
+  - role: common

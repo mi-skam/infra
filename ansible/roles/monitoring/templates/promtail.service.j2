@@ -1,0 +1,19 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Promtail Log Shipper
+Documentation=https://grafana.com/docs/loki/latest/send-data/promtail/
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User={{ promtail_user }}
+Group={{ promtail_group }}
+ExecStart={{ promtail_install_dir }}/promtail \
+  -config.file={{ promtail_config_dir }}/promtail.yaml
+
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

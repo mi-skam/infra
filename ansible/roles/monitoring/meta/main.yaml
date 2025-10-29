@@ -1,0 +1,31 @@
+---
+galaxy_info:
+  role_name: monitoring
+  author: mi-skam
+  description: Deploy Prometheus node_exporter and Promtail monitoring agents
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - monitoring
+    - observability
+    - prometheus
+    - loki
+    - metrics
+    - logs
+
+dependencies:
+  - role: common

@@ -1,0 +1,15 @@
+# {{ ansible_managed }}
+[Unit]
+Description=restic backup timer
+Requires={{ backup_service_name }}.service
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+AccuracySec={{ backup_schedule_randomized_delay }}
+
+# Run at specific time
+OnCalendar=*-*-* {{ backup_schedule_time }}:00
+
+[Install]
+WantedBy=timers.target

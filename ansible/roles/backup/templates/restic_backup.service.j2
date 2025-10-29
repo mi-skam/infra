@@ -1,0 +1,24 @@
+# {{ ansible_managed }}
+[Unit]
+Description=restic backup service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart={{ backup_script_path }}
+User=root
+Group=root
+
+# Security hardening
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/log
+
+# Timeout after 6 hours
+TimeoutStartSec=6h
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,12 @@
+---
+# Backup role handlers
+
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
+- name: Restart backup timer
+  ansible.builtin.systemd:
+    name: "{{ backup_timer_name }}"
+    state: restarted
+    daemon_reload: true
