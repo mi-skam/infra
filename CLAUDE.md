@@ -80,6 +80,8 @@ load-secrets  # Available in nix devshell
 - `secrets/ssh-keys.yaml` - SSH keys for various systems
 - `secrets/pgp-keys.yaml` - PGP keys for encryption
 
+**Note:** The secrets files in this repository contain test fixtures with placeholder data for CI/CD builds. These allow `nix flake check` and build tests to succeed without requiring production secrets. For production deployments, these files must be replaced with actual encrypted secrets containing real passwords, keys, and tokens.
+
 ## Essential Commands
 
 ### Development Shell
