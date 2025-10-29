@@ -2,10 +2,10 @@ graph TD
     %% ============================================================================
     %% Refactored Justfile Recipe Dependency Graph
     %% ============================================================================
-    %% Generated: 2025-10-29 (Iteration 4)
-    %% Source: justfile (351 total lines, 140 functional lines, 27 recipes)
-    %% Changes: Extracted SOPS helper, extracted stow loop helper, added docs
-    %% Functional code reduction: 160 → 140 lines (12.5% reduction)
+    %% Generated: 2025-10-29 (Iteration 4, Task I4.T1)
+    %% Source: justfile (181 total lines, 29 recipes including 2 private helpers)
+    %% Original: 230 lines → Refactored: 181 lines (21.3% reduction)
+    %% Changes: Single-line comments, extracted SOPS helper, extracted stow helper
     %% ============================================================================
 
     %% User entry points
@@ -236,7 +236,7 @@ graph TD
     end
 
     subgraph secrets_helpers["Secrets Management - Private Helpers (1 recipe)"]
-        _export-hcloud-token
+        _get-hcloud-token
     end
 
     subgraph terraform_recipes["Terraform/OpenTofu Operations (8 recipes)"]
