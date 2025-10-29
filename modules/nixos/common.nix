@@ -3,23 +3,15 @@
   imports = [
     inputs.srvos.nixosModules.common
 
+    ../lib/system-common.nix
     ../users/mi-skam.nix
     ../users/plumps.nix
 
     ./secrets.nix
   ];
 
-  # common nix settings
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-  nixpkgs.config.allowUnfree = true;
-
   # Configure console keymap
   console.keyMap = "de";
-
-  time.timeZone = "Europe/Berlin";
 
   # Select internationalisation properties.
   i18n.defaultLocale = "en_US.UTF-8";
@@ -35,9 +27,6 @@
     LC_TELEPHONE = "de_DE.UTF-8";
     LC_TIME = "de_DE.UTF-8";
   };
-
-  programs.fish.enable = true;
-  programs.command-not-found.enable = false;
 
   # Add home-manager to system packages for remote deployment
   environment.systemPackages = with inputs.home-manager.packages.x86_64-linux; [

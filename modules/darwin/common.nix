@@ -1,6 +1,7 @@
 { inputs, ... }:
 {
   imports = [
+    ../lib/system-common.nix
     ../users/plumps.nix
     ./secrets.nix
   ];
@@ -8,23 +9,10 @@
   # Set primary user for system defaults
   system.primaryUser = "plumps";
 
-  # common nix settings
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
-  nixpkgs.config.allowUnfree = true;
-
-  time.timeZone = "Europe/Berlin";
-
   # Locale settings - handled differently on macOS
   system.defaults.NSGlobalDomain = {
     AppleICUForce24HourTime = true;
   };
-
-  # Shell completion (similar to Bash completion)
-  programs.fish.enable = true;
-  programs.command-not-found.enable = false;
 
 
   # Darwin-specific system settings

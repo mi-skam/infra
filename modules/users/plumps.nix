@@ -5,38 +5,11 @@
   ...
 }:
 let
-  isDarwin = pkgs.stdenv.isDarwin;
-  isLinux = pkgs.stdenv.isLinux;
+  userLib = import ../lib/mkUser.nix { inherit lib pkgs config; };
 in
-{
-  users.users.plumps = lib.mkMerge [
-    {
-      uid = 1001;
-      shell = pkgs.fish;
-      openssh.authorizedKeys.keyFiles = [ ../../secrets/authorized_keys ];
-    }
-
-    (lib.mkIf isDarwin {
-      home = "/Users/plumps";
-    })
-
-    (lib.mkIf isLinux {
-      description = "plumps";
-      isNormalUser = true;
-      extraGroups = [
-        "audio"
-        "docker"
-        "input"
-        "libvirtd"
-        "networkmanager"
-        "sound"
-        "tty"
-        "video"
-        "wheel"
-      ];
-      hashedPasswordFile = config.sops.secrets."plumps".path;
-    })
-  ];
-  
-  users.mutableUsers = false;
+userLib.mkUser {
+  name = "plumps";
+  uid = 1001;
+  description = "plumps";
+  secretName = "plumps";
 }
