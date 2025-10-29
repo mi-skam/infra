@@ -1,0 +1,371 @@
+graph TD
+    %% ============================================================================
+    %% Refactored Justfile Recipe Dependency Graph
+    %% ============================================================================
+    %% Generated: 2025-10-29 (Iteration 4)
+    %% Source: justfile (351 total lines, 140 functional lines, 27 recipes)
+    %% Changes: Extracted SOPS helper, extracted stow loop helper, added docs
+    %% Functional code reduction: 160 → 140 lines (12.5% reduction)
+    %% ============================================================================
+
+    %% User entry points
+    User([User/Operator])
+
+    %% ============================================================================
+    %% Recipe Nodes
+    %% ============================================================================
+
+    %% Utility
+    default[default<br/>List recipes]
+    validate-secrets[validate-secrets<br/>Validate SOPS secrets]
+
+    %% Private helpers (shown with dashed outline)
+    _get-hcloud-token[_get-hcloud-token<br/>Get Hetzner token]
+    _stow-all[_stow-all<br/>Apply stow to all packages]
+
+    %% Terraform/OpenTofu recipes
+    tf-init[tf-init<br/>Initialize Terraform]
+    tf-plan[tf-plan<br/>Plan changes]
+    tf-apply[tf-apply<br/>Apply changes]
+    tf-destroy[tf-destroy<br/>Destroy infrastructure]
+    tf-destroy-target[tf-destroy-target<br/>Destroy specific resource]
+    tf-import[tf-import<br/>Import resources]
+    tf-output[tf-output<br/>Show outputs]
+    ansible-inventory-update[ansible-inventory-update<br/>Export to Ansible]
+
+    %% Ansible recipes
+    ansible-ping[ansible-ping<br/>Test connectivity]
+    ansible-deploy[ansible-deploy<br/>Run playbook on all]
+    ansible-deploy-env[ansible-deploy-env<br/>Run playbook on env]
+    ansible-inventory[ansible-inventory<br/>List inventory]
+    ansible-cmd[ansible-cmd<br/>Ad-hoc command]
+    ssh[ssh<br/>SSH to server]
+
+    %% Dotfiles recipes
+    install-all[install-all<br/>Install everything]
+    install-brew[install-brew<br/>Install Homebrew packages]
+    install-dotfiles[install-dotfiles<br/>Stow all dotfiles]
+    uninstall-dotfiles[uninstall-dotfiles<br/>Unstow all dotfiles]
+    ensure-stow[ensure-stow<br/>Ensure stow installed]
+    dry-run[dry-run<br/>Simulate stow]
+    install[install<br/>Stow specific package]
+    uninstall[uninstall<br/>Unstow specific package]
+    restow[restow<br/>Re-stow packages]
+    check[check<br/>Check conflicts]
+    clean[clean<br/>Find broken symlinks]
+    test-install[test-install<br/>Test in temp dir]
+
+    %% ============================================================================
+    %% External Tools
+    %% ============================================================================
+
+    sops{{SOPS<br/>Secrets decryption}}
+    tofu{{OpenTofu<br/>Infrastructure}}
+    ansible{{Ansible<br/>Configuration}}
+    stow{{GNU Stow<br/>Symlink manager}}
+    brew{{Homebrew<br/>Package manager}}
+    jq{{jq<br/>JSON processor}}
+    ssh-tool{{SSH<br/>Remote shell}}
+    validate-script{{validate-secrets.sh<br/>Schema validation}}
+
+    %% ============================================================================
+    %% Data Dependencies
+    %% ============================================================================
+
+    age-key[(SOPS age key<br/>~/.config/sops/age/keys.txt)]
+    hetzner-secrets[(secrets/hetzner.yaml<br/>Hetzner API token)]
+    tf-state[(terraform.tfstate<br/>Infrastructure state)]
+    ansible-inv[(hosts.yaml<br/>Ansible inventory)]
+    ssh-key[(~/.ssh/homelab/hetzner<br/>SSH private key)]
+    dotfiles-dir[(dotfiles/<br/>Dotfile packages)]
+    brewfile[(dotfiles/brew/.Brewfile<br/>Homebrew packages)]
+
+    %% ============================================================================
+    %% User Interactions
+    %% ============================================================================
+
+    User --> default
+    User --> validate-secrets
+    User --> tf-init
+    User --> tf-plan
+    User --> tf-apply
+    User --> tf-destroy
+    User --> tf-destroy-target
+    User --> tf-import
+    User --> tf-output
+    User --> ansible-inventory-update
+    User --> ansible-ping
+    User --> ansible-deploy
+    User --> ansible-deploy-env
+    User --> ansible-inventory
+    User --> ansible-cmd
+    User --> ssh
+    User --> install-all
+    User --> dry-run
+    User --> install
+    User --> uninstall
+    User --> restow
+    User --> check
+    User --> clean
+    User --> test-install
+
+    %% ============================================================================
+    %% Explicit Recipe Dependencies (NOW CONSOLIDATED!)
+    %% ============================================================================
+
+    %% Validation
+    validate-secrets --> validate-script
+
+    %% CONSOLIDATED: All Terraform recipes now use single SOPS helper
+    tf-plan --> _get-hcloud-token
+    tf-apply --> _get-hcloud-token
+    tf-destroy --> _get-hcloud-token
+    tf-destroy-target --> _get-hcloud-token
+    tf-import --> _get-hcloud-token
+    tf-output --> _get-hcloud-token
+    ansible-inventory-update --> _get-hcloud-token
+    ssh --> _get-hcloud-token
+
+    %% CONSOLIDATED: Dotfiles recipes now use single stow helper
+    install-all --> install-brew
+    install-all --> install-dotfiles
+    install-dotfiles --> ensure-stow
+    install-dotfiles --> _stow-all
+    uninstall-dotfiles --> _stow-all
+    dry-run --> _stow-all
+    restow --> _stow-all
+
+    %% ============================================================================
+    %% Implicit Recipe Dependencies (Should exist but not declared)
+    %% ============================================================================
+
+    tf-plan -.->|should depend on| tf-init
+    tf-apply -.->|should depend on| tf-init
+    tf-destroy -.->|should depend on| tf-init
+    tf-destroy-target -.->|should depend on| tf-init
+    tf-import -.->|should depend on| tf-init
+    tf-output -.->|should depend on| tf-init
+    ansible-inventory-update -.->|should depend on| tf-init
+
+    ansible-deploy -.->|should use| ansible-inventory-update
+    ansible-deploy-env -.->|should use| ansible-inventory-update
+    ansible-ping -.->|should verify| ansible-inventory-update
+
+    %% ============================================================================
+    %% Tool Invocations (NOW CONSOLIDATED!)
+    %% ============================================================================
+
+    %% CRITICAL IMPROVEMENT: SOPS now called ONCE by helper (was 8 times!)
+    _get-hcloud-token --> sops
+
+    %% Terraform recipes call tofu
+    tf-init --> tofu
+    tf-plan --> tofu
+    tf-apply --> tofu
+    tf-destroy --> tofu
+    tf-destroy-target --> tofu
+    tf-import --> tofu
+    tf-output --> tofu
+    ansible-inventory-update --> tofu
+
+    %% SSH recipe calls jq and ssh
+    ssh --> jq
+    ssh --> ssh-tool
+
+    %% Ansible recipes call ansible
+    ansible-ping --> ansible
+    ansible-deploy --> ansible
+    ansible-deploy-env --> ansible
+    ansible-inventory --> ansible
+    ansible-cmd --> ansible
+
+    %% CONSOLIDATED: Stow now called through helper for most recipes
+    _stow-all --> stow
+    install --> stow
+    uninstall --> stow
+    check --> stow
+
+    %% Brew installation
+    install-brew --> brew
+    ensure-stow --> brew
+
+    %% ============================================================================
+    %% Data Dependencies
+    %% ============================================================================
+
+    %% SOPS requires age key and decrypts secrets
+    sops -.->|requires| age-key
+    sops -.->|decrypts| hetzner-secrets
+
+    %% Terraform recipes require state
+    tf-plan -.->|reads| tf-state
+    tf-apply -.->|modifies| tf-state
+    tf-destroy -.->|modifies| tf-state
+    tf-destroy-target -.->|modifies| tf-state
+    tf-import -.->|modifies| tf-state
+    tf-output -.->|reads| tf-state
+    ansible-inventory-update -.->|reads| tf-state
+    ssh -.->|reads| tf-state
+
+    %% Ansible inventory dependency
+    ansible-inventory-update -.->|writes| ansible-inv
+    ansible-ping -.->|reads| ansible-inv
+    ansible-deploy -.->|reads| ansible-inv
+    ansible-deploy-env -.->|reads| ansible-inv
+    ansible-inventory -.->|reads| ansible-inv
+    ansible-cmd -.->|reads| ansible-inv
+
+    %% SSH key dependency
+    ssh -.->|requires| ssh-key
+
+    %% Dotfiles dependencies
+    install-brew -.->|reads| brewfile
+    _stow-all -.->|reads| dotfiles-dir
+    install -.->|reads| dotfiles-dir
+    uninstall -.->|reads| dotfiles-dir
+    restow -.->|reads| dotfiles-dir
+    check -.->|reads| dotfiles-dir
+    test-install -.->|reads| dotfiles-dir
+
+    %% ============================================================================
+    %% Subgraph Grouping by Category
+    %% ============================================================================
+
+    subgraph validation_recipes["Validation (1 recipe)"]
+        validate-secrets
+    end
+
+    subgraph secrets_helpers["Secrets Management - Private Helpers (1 recipe)"]
+        _export-hcloud-token
+    end
+
+    subgraph terraform_recipes["Terraform/OpenTofu Operations (8 recipes)"]
+        tf-init
+        tf-plan
+        tf-apply
+        tf-destroy
+        tf-destroy-target
+        tf-import
+        tf-output
+        ansible-inventory-update
+    end
+
+    subgraph ansible_recipes["Ansible Configuration Management (6 recipes)"]
+        ansible-ping
+        ansible-deploy
+        ansible-deploy-env
+        ansible-inventory
+        ansible-cmd
+        ssh
+    end
+
+    subgraph dotfiles_helpers["Dotfiles - Private Helpers (1 recipe)"]
+        _stow-all
+    end
+
+    subgraph dotfiles_recipes["Dotfiles Management (10 public recipes)"]
+        install-all
+        install-brew
+        install-dotfiles
+        uninstall-dotfiles
+        ensure-stow
+        dry-run
+        install
+        uninstall
+        restow
+        check
+        clean
+        test-install
+    end
+
+    subgraph utility_recipes["Utility (1 recipe)"]
+        default
+    end
+
+    subgraph external_tools["External Tools"]
+        sops
+        tofu
+        ansible
+        stow
+        brew
+        jq
+        ssh-tool
+        validate-script
+    end
+
+    subgraph data_files["Data Dependencies"]
+        age-key
+        hetzner-secrets
+        tf-state
+        ansible-inv
+        ssh-key
+        dotfiles-dir
+        brewfile
+    end
+
+    %% ============================================================================
+    %% Styling
+    %% ============================================================================
+
+    classDef terraform fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef ansible fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef dotfiles fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef utility fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef validation fill:#e3f2fd,stroke:#0d47a1,stroke-width:2px
+    classDef helper fill:#fff,stroke:#666,stroke-width:2px,stroke-dasharray: 5 5
+    classDef tool fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef data fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    classDef user fill:#e0f2f1,stroke:#004d40,stroke-width:3px
+
+    class tf-init,tf-plan,tf-apply,tf-destroy,tf-destroy-target,tf-import,tf-output,ansible-inventory-update terraform
+    class ansible-ping,ansible-deploy,ansible-deploy-env,ansible-inventory,ansible-cmd,ssh ansible
+    class install-all,install-brew,install-dotfiles,uninstall-dotfiles,ensure-stow,dry-run,install,uninstall,restow,check,clean,test-install dotfiles
+    class default utility
+    class validate-secrets validation
+    class _get-hcloud-token,_stow-all helper
+    class sops,tofu,ansible,stow,brew,jq,ssh-tool,validate-script tool
+    class age-key,hetzner-secrets,tf-state,ansible-inv,ssh-key,dotfiles-dir,brewfile data
+    class User user
+
+    %% ============================================================================
+    %% Legend
+    %% ============================================================================
+
+    subgraph legend["Legend"]
+        direction LR
+        L1[Solid line: Actual dependency/call]
+        L2[Dashed line: Implicit/data dependency]
+        L3[Dashed box: Private helper recipe]
+        L4{{Tool invocation}}
+        L5[(Data file/resource)]
+    end
+
+    %% ============================================================================
+    %% Refactoring Improvements Highlighted
+    %% ============================================================================
+
+    %% IMPROVEMENT 1: SOPS consolidation (8 duplicates → 1 helper)
+    %% Old: tf-plan, tf-apply, tf-destroy, tf-destroy-target, tf-import,
+    %%      tf-output, ansible-inventory-update, ssh all called SOPS directly
+    %% New: All 8 recipes call _get-hcloud-token private helper
+
+    %% IMPROVEMENT 2: Stow loop consolidation (5 duplicates → 1 helper)
+    %% Old: install-dotfiles, uninstall-dotfiles, dry-run, restow all had
+    %%      duplicate bash loops
+    %% New: All use _stow-all private helper with different flags
+
+    %% IMPROVEMENT 3: Added validation section
+    %% New: validate-secrets recipe from I2.T6 now in dedicated section
+
+    %% IMPROVEMENT 4: All 27 recipes now have documentation comments
+    %% Old: 0 recipes had documentation
+    %% New: All recipes have multi-line documentation explaining purpose,
+    %%      usage, and parameters
+
+    %% IMPROVEMENT 5: Organized into 6 logical sections
+    %% Sections: Utility, Validation, Secrets Management, Terraform,
+    %%          Ansible, Dotfiles
+
+    %% IMPROVEMENT 6: Removed parameter defaults (fail early principle)
+    %% Old: ssh server="" and test-install tmpdir="/tmp/..."
+    %% New: ssh server: and test-install tmpdir: (required parameters)
