@@ -603,29 +603,24 @@ validate_secret_file() {
   # Validate based on file type
   case "${secret_filename}" in
     hetzner.yaml)
-      if ! validate_hetzner_secrets "${decrypted_file}"; then
-        validation_errors=$?
-      fi
+      validate_hetzner_secrets "${decrypted_file}"
+      validation_errors=$?
       ;;
     storagebox.yaml)
-      if ! validate_storagebox_secrets "${decrypted_file}"; then
-        validation_errors=$?
-      fi
+      validate_storagebox_secrets "${decrypted_file}"
+      validation_errors=$?
       ;;
     users.yaml)
-      if ! validate_users_secrets "${decrypted_file}"; then
-        validation_errors=$?
-      fi
+      validate_users_secrets "${decrypted_file}"
+      validation_errors=$?
       ;;
     ssh-keys.yaml)
-      if ! validate_ssh_keys_secrets "${decrypted_file}"; then
-        validation_errors=$?
-      fi
+      validate_ssh_keys_secrets "${decrypted_file}"
+      validation_errors=$?
       ;;
     pgp-keys.yaml)
-      if ! validate_pgp_keys_secrets "${decrypted_file}"; then
-        validation_errors=$?
-      fi
+      validate_pgp_keys_secrets "${decrypted_file}"
+      validation_errors=$?
       ;;
     *)
       log_warning "  Unknown secret file type (no validation rules defined)"
@@ -702,18 +697,19 @@ main() {
 
   # Step 4: Validate existing files (must pass)
   local total_errors=0
+  local file_errors=0
   for secret_file in "${EXISTING_FILES[@]}"; do
-    if ! validate_secret_file "${secret_file}"; then
-      ((total_errors += $?))
-    fi
+    validate_secret_file "${secret_file}"
+    file_errors=$?
+    total_errors=$((total_errors + file_errors))
   done
 
   # Step 5: Validate planned files (if not skipped)
   if [[ ${skip_planned} -eq 0 ]]; then
     for secret_file in "${PLANNED_FILES[@]}"; do
-      if ! validate_secret_file "${secret_file}"; then
-        ((total_errors += $?))
-      fi
+      validate_secret_file "${secret_file}"
+      file_errors=$?
+      total_errors=$((total_errors + file_errors))
     done
   fi
 
