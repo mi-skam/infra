@@ -116,6 +116,14 @@ hcloud_token := `sops -d secrets/hetzner.yaml 2>/dev/null | grep hcloud_token | 
     ssh -i ~/.ssh/homelab/hetzner root@$IP
 
 # ============================================================================
+# Validation Commands
+# ============================================================================
+
+# Validate SOPS secrets against schema
+@validate-secrets:
+    scripts/validate-secrets.sh
+
+# ============================================================================
 # Dotfiles Commands (existing)
 # ============================================================================
 
