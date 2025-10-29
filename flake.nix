@@ -97,9 +97,9 @@
               };
             };
             modules = [
-              ./modules/home/users/mi-skam.nix
-              ./modules/home/desktop.nix
-              ./modules/home/dev.nix
+              ./modules/hm/users/mi-skam.nix
+              ./modules/hm/desktop.nix
+              ./modules/hm/dev.nix
               inputs.sops-nix.homeManagerModules.sops
             ];
           };
@@ -117,9 +117,9 @@
               };
             };
             modules = [
-              ./modules/home/users/plumps.nix
-              ./modules/home/desktop.nix
-              ./modules/home/dev.nix
+              ./modules/hm/users/plumps.nix
+              ./modules/hm/desktop.nix
+              ./modules/hm/dev.nix
               inputs.sops-nix.homeManagerModules.sops
             ];
           };
@@ -137,8 +137,8 @@
               };
             };
             modules = [
-              ./modules/home/users/plumps.nix
-              ./modules/home/common.nix
+              ./modules/hm/users/plumps.nix
+              ./modules/hm/common.nix
               inputs.sops-nix.homeManagerModules.sops
             ];
           };
