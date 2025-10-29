@@ -664,6 +664,31 @@ _get-hcloud-token:
     set -euo pipefail
     export TF_VAR_hcloud_token="$(just _get-hcloud-token)" && cd terraform && tofu output
 
+# Detect infrastructure drift between Terraform config and actual state
+#
+# Runs terraform/drift-detection.sh which compares actual Hetzner Cloud
+# infrastructure against Terraform configuration to detect manual changes
+# or out-of-band modifications.
+#
+# The script performs:
+# 1. Validates Terraform is initialized and age key exists
+# 2. Refreshes Terraform state from Hetzner Cloud API
+# 3. Generates plan to detect changes (tofu plan -detailed-exitcode)
+# 4. Reports drifted resources with details
+#
+# Exit codes:
+# - 0: No drift (infrastructure matches configuration)
+# - 1: Drift detected (resources have changed)
+# - 2: Error (API failure, missing credentials, Terraform errors)
+#
+# Example usage:
+#   just tf-drift-check    # Check for drift
+#
+# This is safe to run anytime - it does NOT modify infrastructure.
+# For scheduled drift detection in CI/CD, see Iteration 7 plan.
+@tf-drift-check:
+    terraform/drift-detection.sh
+
 # Synchronize Ansible inventory from Terraform state
 #
 # Extracts the ansible_inventory output from Terraform and writes it to
