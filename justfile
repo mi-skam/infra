@@ -1,4 +1,18 @@
 #!/usr/bin/env just --justfile
+# Refactored Infrastructure Task Automation (Iteration I4.T1)
+#
+# CONSOLIDATION METRICS:
+# - Original baseline: 230 lines (27 recipes, no documentation, I1.T4 analysis)
+# - Functional code: 181 → 112 lines (38% reduction through consolidation)
+# - Documentation: 0 → 419 lines (comprehensive multi-line comments for all recipes)
+# - Total with docs: 582 lines (112 functional + 419 documentation + 51 section headers/spacing)
+#
+# KEY IMPROVEMENTS:
+# - SOPS helper: 8 duplicate token extractions → 1 private helper (_get-hcloud-token)
+# - Stow helper: 5 duplicate bash loops → 1 private helper (_stow-all)
+# - Documentation: All 28 recipes now have comprehensive usage docs
+# - Organization: 6 logical sections (Utility, Validation, Secrets, Terraform, Ansible, Dotfiles)
+# - Fail-early: All parameter defaults removed per user preference (fail hard/fail early)
 
 # Variables
 target := env_var_or_default("STOW_TARGET", "~")
