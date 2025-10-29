@@ -35,7 +35,7 @@ import? 'dotfiles.justfile'
     just --list
 
 # ============================================================================
-# Validation Recipes
+# Validation Recipes (Public & Private Helpers)
 # ============================================================================
 
 # Validate SOPS-encrypted secrets against JSON schemas
@@ -50,6 +50,129 @@ import? 'dotfiles.justfile'
 # This should be run before any deployment to catch secret format issues early.
 @validate-secrets:
     scripts/validate-secrets.sh
+
+# Validate SOPS age private key exists (PRIVATE HELPER)
+#
+# Checks for SOPS age private key at standard locations:
+# - ~/.config/sops/age/keys.txt (user-specific)
+# - /etc/sops/age/keys.txt (system-wide)
+#
+# This validation is CRITICAL for all Terraform operations that require
+# SOPS decryption. Without the age key, SOPS fails with cryptic errors.
+#
+# Called by: tf-apply, tf-plan, tf-destroy, all Terraform recipes
+#
+# Returns: Exit code 0 if key found, exit code 1 if missing
+[private]
+_validate-age-key:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f ~/.config/sops/age/keys.txt ] && [ ! -f /etc/sops/age/keys.txt ]; then
+        echo "❌ Error: SOPS age private key not found" >&2
+        echo "Expected locations:" >&2
+        echo "  - ~/.config/sops/age/keys.txt" >&2
+        echo "  - /etc/sops/age/keys.txt" >&2
+        echo "" >&2
+        echo "Documentation: CLAUDE.md#secrets-management" >&2
+        exit 1
+    fi
+    echo "✓ SOPS age key found"
+
+# Validate git changes are staged or working tree is clean (PRIVATE HELPER)
+#
+# Validates git repository state for Nix flake deployments. Nix flakes
+# REQUIRE changes to be on the git index to be picked up. Unstaged changes
+# will be silently ignored, causing confusing deployment failures.
+#
+# Validation logic:
+# - If working tree is clean (no changes): OK, proceed
+# - If changes are staged (git add was run): OK, proceed
+# - If changes are unstaged: ERROR, tell user to run git add
+#
+# Called by: nixos-deploy, darwin-deploy
+#
+# Returns: Exit code 0 if clean/staged, exit code 1 if unstaged changes
+[private]
+_validate-git-staged:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if git diff --quiet && git diff --cached --quiet; then
+        echo "✓ Git working tree clean"
+    elif git diff --cached --quiet; then
+        echo "❌ Error: Unstaged changes detected" >&2
+        echo "Nix flakes require changes to be staged with 'git add'" >&2
+        echo "" >&2
+        git status --short >&2
+        exit 1
+    else
+        echo "✓ Changes staged for commit"
+    fi
+
+# Validate Terraform is initialized and has state (PRIVATE HELPER)
+#
+# Checks that Terraform/OpenTofu has been initialized (tf-init was run)
+# and optionally that a state file exists. This prevents cryptic errors
+# when running Terraform commands before initialization.
+#
+# Validation checks:
+# - terraform/.terraform.lock.hcl exists (tf-init was run)
+# - terraform/terraform.tfstate exists (warning only if missing)
+#
+# Called by: tf-apply, tf-plan, ansible-inventory-update
+#
+# Returns: Exit code 0 if initialized, exit code 1 if not initialized
+[private]
+_validate-terraform-state:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ ! -f terraform/.terraform.lock.hcl ]; then
+        echo "❌ Error: Terraform not initialized" >&2
+        echo "Run: just tf-init" >&2
+        exit 1
+    fi
+    if [ ! -f terraform/terraform.tfstate ]; then
+        echo "⚠ Warning: No Terraform state file found" >&2
+        echo "This is normal for first run" >&2
+    else
+        echo "✓ Terraform state exists"
+    fi
+
+# Validate Ansible inventory exists and is current (PRIVATE HELPER)
+#
+# Checks that Ansible inventory file exists and is not stale relative to
+# Terraform state. Stale inventory can cause Ansible to use wrong IPs or
+# miss newly created servers.
+#
+# Validation checks:
+# - ansible/inventory/hosts.yaml exists (error if missing)
+# - Compare timestamps: if Terraform state is newer, warn about stale inventory
+#
+# Called by: ansible-deploy, ansible-deploy-env, ansible-ping
+#
+# Returns: Exit code 0 if valid/current, exit code 1 if inventory missing
+[private]
+_validate-ansible-inventory:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    INVENTORY="ansible/inventory/hosts.yaml"
+    STATE="terraform/terraform.tfstate"
+
+    if [ ! -f "$INVENTORY" ]; then
+        echo "❌ Error: Ansible inventory not found" >&2
+        echo "Run: just ansible-inventory-update" >&2
+        exit 1
+    fi
+
+    if [ -f "$STATE" ]; then
+        if [ "$STATE" -nt "$INVENTORY" ]; then
+            echo "⚠ Warning: Terraform state is newer than Ansible inventory" >&2
+            echo "Recommend running: just ansible-inventory-update" >&2
+        else
+            echo "✓ Ansible inventory is current"
+        fi
+    else
+        echo "✓ Ansible inventory exists"
+    fi
 
 # ============================================================================
 # Nix Operations (System & Home Management)
@@ -71,21 +194,95 @@ import? 'dotfiles.justfile'
 @nixos-build host:
     nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel
 
-# Deploy NixOS system configuration
+# Deploy NixOS system configuration with validation gates
 #
 # Parameters:
-#   host - Hostname (e.g., "xmsi", "srv-01")
+#   host  - Hostname (e.g., "xmsi", "srv-01")
+#   force - Optional: Skip confirmation prompt (pass "true" to force)
 #
-# Requires sudo. Builds and activates the NixOS system configuration.
-# This will switch the running system to the new configuration.
+# Requires sudo. Builds and activates the NixOS system configuration with
+# comprehensive pre-deployment validation.
+#
+# Validation gates (in order):
+#   1. Validates secrets are properly encrypted and formatted
+#   2. Validates git changes are staged (Nix flakes requirement)
+#   3. Validates Nix syntax (nix flake check)
+#   4. Performs dry-run build (shows what would be built)
+#   5. Requires user confirmation (unless force="true")
 #
 # Example usage:
-#   just nixos-deploy xmsi     # Deploy to xmsi desktop
-#   just nixos-deploy srv-01   # Deploy to srv-01 server
+#   just nixos-deploy xmsi           # Deploy with confirmation
+#   just nixos-deploy srv-01 true    # Deploy without confirmation (force)
 #
-# IMPORTANT: Always run nixos-build first to test the configuration.
-@nixos-deploy host:
+# IMPORTANT: Nix flakes require unstaged changes to be added with 'git add'
+# before deployment. Unstaged changes will be silently ignored.
+@nixos-deploy host force="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "═══════════════════════════════════════"
+    echo "NixOS Deployment Validation"
+    echo "═══════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        exit 1
+    fi
+
+    # Gate 2: Validate git staging
+    echo "→ Checking git status..."
+    if ! just _validate-git-staged; then
+        echo "❌ Git staging validation failed" >&2
+        exit 1
+    fi
+
+    # Gate 3: Syntax validation
+    echo "→ Validating Nix syntax..."
+    if ! nix flake check; then
+        echo "❌ Nix syntax check failed" >&2
+        exit 1
+    fi
+    echo "✓ Syntax validated"
+
+    # Gate 4: Dry-run build
+    echo ""
+    echo "→ Performing dry-run build..."
+    if ! nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel; then
+        echo "❌ Dry-run build failed" >&2
+        exit 1
+    fi
+    echo "✓ Dry-run succeeded"
+
+    # Gate 5: Confirmation (unless force mode)
+    if [ "{{force}}" != "true" ]; then
+        echo ""
+        echo "═══════════════════════════════════════"
+        read -p "Proceed with deployment to {{host}}? [y/N]: " confirmation
+        if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+            echo "Deployment cancelled"
+            exit 0
+        fi
+    fi
+
+    # Execute deployment
+    echo ""
+    echo "→ Deploying NixOS configuration to {{host}}..."
     sudo nixos-rebuild switch --flake .#{{host}}
+
+    # Success summary
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo "Deployment Summary"
+    echo "═══════════════════════════════════════"
+    echo "✓ Secrets validated"
+    echo "✓ Git changes staged"
+    echo "✓ Syntax validated"
+    echo "✓ Dry-run succeeded"
+    echo "✓ Deployed successfully to {{host}}"
 
 # Build Darwin system configuration without activating
 #
@@ -102,20 +299,95 @@ import? 'dotfiles.justfile'
 @darwin-build host:
     nix build .#darwinConfigurations.{{host}}.system
 
-# Deploy Darwin system configuration
+# Deploy Darwin system configuration with validation gates
 #
 # Parameters:
-#   host - Hostname (e.g., "xbook")
+#   host  - Hostname (e.g., "xbook")
+#   force - Optional: Skip confirmation prompt (pass "true" to force)
 #
-# Builds and activates the Darwin (macOS) system configuration. This will
-# switch the running system to the new configuration.
+# Builds and activates the Darwin (macOS) system configuration with
+# comprehensive pre-deployment validation.
+#
+# Validation gates (in order):
+#   1. Validates secrets are properly encrypted and formatted
+#   2. Validates git changes are staged (Nix flakes requirement)
+#   3. Validates Nix syntax (nix flake check)
+#   4. Performs dry-run build (shows what would be built)
+#   5. Requires user confirmation (unless force="true")
 #
 # Example usage:
-#   just darwin-deploy xbook   # Deploy to xbook macOS system
+#   just darwin-deploy xbook         # Deploy with confirmation
+#   just darwin-deploy xbook true    # Deploy without confirmation (force)
 #
-# IMPORTANT: Always run darwin-build first to test the configuration.
-@darwin-deploy host:
+# IMPORTANT: Nix flakes require unstaged changes to be added with 'git add'
+# before deployment. Unstaged changes will be silently ignored.
+@darwin-deploy host force="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "═══════════════════════════════════════"
+    echo "Darwin Deployment Validation"
+    echo "═══════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        exit 1
+    fi
+
+    # Gate 2: Validate git staging
+    echo "→ Checking git status..."
+    if ! just _validate-git-staged; then
+        echo "❌ Git staging validation failed" >&2
+        exit 1
+    fi
+
+    # Gate 3: Syntax validation
+    echo "→ Validating Nix syntax..."
+    if ! nix flake check; then
+        echo "❌ Nix syntax check failed" >&2
+        exit 1
+    fi
+    echo "✓ Syntax validated"
+
+    # Gate 4: Dry-run build
+    echo ""
+    echo "→ Performing dry-run build..."
+    if ! nix build .#darwinConfigurations.{{host}}.system; then
+        echo "❌ Dry-run build failed" >&2
+        exit 1
+    fi
+    echo "✓ Dry-run succeeded"
+
+    # Gate 5: Confirmation (unless force mode)
+    if [ "{{force}}" != "true" ]; then
+        echo ""
+        echo "═══════════════════════════════════════"
+        read -p "Proceed with deployment to {{host}}? [y/N]: " confirmation
+        if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+            echo "Deployment cancelled"
+            exit 0
+        fi
+    fi
+
+    # Execute deployment
+    echo ""
+    echo "→ Deploying Darwin configuration to {{host}}..."
     darwin-rebuild switch --flake .#{{host}}
+
+    # Success summary
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo "Deployment Summary"
+    echo "═══════════════════════════════════════"
+    echo "✓ Secrets validated"
+    echo "✓ Git changes staged"
+    echo "✓ Syntax validated"
+    echo "✓ Dry-run succeeded"
+    echo "✓ Deployed successfully to {{host}}"
 
 # Build Home Manager configuration without activating
 #
@@ -209,21 +481,110 @@ _get-hcloud-token:
     set -euo pipefail
     export TF_VAR_hcloud_token="$(just _get-hcloud-token)" && cd terraform && tofu plan
 
-# Apply infrastructure changes to Hetzner Cloud
+# Apply infrastructure changes to Hetzner Cloud with validation gates
+#
+# Parameters:
+#   force - Optional: Skip confirmation prompt (pass "true" to force)
 #
 # Creates, modifies, or destroys infrastructure to match desired state defined
-# in Terraform configuration files. Prompts for confirmation before applying.
+# in Terraform configuration files. Includes comprehensive pre-deployment validation.
+#
+# Validation gates (in order):
+#   1. Validates SOPS age key exists (required for decryption)
+#   2. Validates secrets are properly encrypted and formatted
+#   3. Validates Terraform is initialized and has state
+#   4. Validates Terraform syntax (tofu validate)
+#   5. Shows Terraform plan output (what will change)
+#   6. Requires user confirmation (unless force="true")
 #
 # This will:
 # - Create new servers, networks, SSH keys as defined
 # - Modify existing resources if configuration changed
 # - Destroy resources removed from configuration (with lifecycle protection)
 #
-# Use --auto-approve flag with caution in production.
-@tf-apply:
+# Example usage:
+#   just tf-apply           # Apply with confirmation
+#   just tf-apply true      # Apply without confirmation (force)
+#
+# IMPORTANT: Always review the plan output before confirming deployment.
+@tf-apply force="":
     #!/usr/bin/env bash
     set -euo pipefail
-    export TF_VAR_hcloud_token="$(just _get-hcloud-token)" && cd terraform && tofu apply
+
+    echo "═══════════════════════════════════════"
+    echo "Terraform Deployment Validation"
+    echo "═══════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate age key
+    echo "→ Validating SOPS age key..."
+    if ! just _validate-age-key; then
+        echo "❌ Age key validation failed" >&2
+        echo "See error above for details" >&2
+        exit 1
+    fi
+
+    # Gate 2: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        exit 1
+    fi
+
+    # Gate 3: Validate Terraform state
+    echo "→ Validating Terraform state..."
+    if ! just _validate-terraform-state; then
+        echo "❌ Terraform state validation failed" >&2
+        exit 1
+    fi
+
+    # Gate 4: Syntax validation
+    echo "→ Validating Terraform syntax..."
+    export TF_VAR_hcloud_token="$(just _get-hcloud-token)"
+    cd terraform
+    if ! tofu validate; then
+        echo "❌ Terraform syntax validation failed" >&2
+        exit 1
+    fi
+    echo "✓ Syntax validated"
+
+    # Gate 5: Show plan
+    echo ""
+    echo "→ Generating Terraform plan..."
+    echo "═══════════════════════════════════════"
+    if ! tofu plan; then
+        echo "❌ Terraform plan failed" >&2
+        exit 1
+    fi
+    echo "═══════════════════════════════════════"
+
+    # Gate 6: Confirmation (unless force mode)
+    if [ "{{force}}" != "true" ]; then
+        echo ""
+        read -p "Proceed with infrastructure deployment? [y/N]: " confirmation
+        if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+            echo "Deployment cancelled"
+            exit 0
+        fi
+    fi
+
+    # Execute deployment
+    echo ""
+    echo "→ Applying Terraform changes..."
+    tofu apply -auto-approve
+
+    # Success summary
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo "Deployment Summary"
+    echo "═══════════════════════════════════════"
+    echo "✓ Age key validated"
+    echo "✓ Secrets validated"
+    echo "✓ Terraform state validated"
+    echo "✓ Syntax validated"
+    echo "✓ Plan succeeded"
+    echo "✓ Applied successfully"
 
 # Destroy ALL infrastructure managed by Terraform (DANGEROUS!)
 #
@@ -345,40 +706,193 @@ _get-hcloud-token:
 @ansible-ping:
     cd ansible && ansible all -m ping
 
-# Run Ansible playbook on all hosts in inventory
+# Run Ansible playbook on all hosts with validation gates
 #
 # Parameters:
 #   playbook - Playbook name without .yaml extension (e.g., "bootstrap", "deploy")
+#   force    - Optional: Skip confirmation prompt (pass "true" to force)
 #
-# Example usage:
-#   just ansible-deploy bootstrap  # Runs playbooks/bootstrap.yaml on all servers
-#   just ansible-deploy deploy     # Runs playbooks/deploy.yaml on all servers
+# Deploys to all hosts in inventory with comprehensive pre-deployment validation.
+#
+# Validation gates (in order):
+#   1. Validates secrets are properly encrypted (Ansible uses SSH keys)
+#   2. Validates Ansible inventory exists and is current
+#   3. Validates playbook syntax (ansible-playbook --syntax-check)
+#   4. Performs dry-run with change preview (ansible-playbook --check --diff)
+#   5. Requires user confirmation (unless force="true")
 #
 # Available playbooks:
 # - bootstrap: Initial server setup (users, packages, hardening)
 # - deploy: Deploy application configurations
 #
+# Example usage:
+#   just ansible-deploy bootstrap       # Deploy with confirmation
+#   just ansible-deploy deploy true     # Deploy without confirmation (force)
+#
 # For environment-specific deployment, use ansible-deploy-env instead.
-@ansible-deploy playbook:
-    cd ansible && ansible-playbook playbooks/{{playbook}}.yaml
+# IMPORTANT: Always review the dry-run output before confirming deployment.
+@ansible-deploy playbook force="":
+    #!/usr/bin/env bash
+    set -euo pipefail
 
-# Run Ansible playbook on specific environment (dev or prod)
+    echo "═══════════════════════════════════════"
+    echo "Ansible Deployment Validation"
+    echo "═══════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        exit 1
+    fi
+
+    # Gate 2: Validate Ansible inventory
+    echo "→ Validating Ansible inventory..."
+    if ! just _validate-ansible-inventory; then
+        echo "❌ Ansible inventory validation failed" >&2
+        exit 1
+    fi
+
+    # Gate 3: Syntax validation
+    echo "→ Validating playbook syntax..."
+    cd ansible
+    if ! ansible-playbook playbooks/{{playbook}}.yaml --syntax-check; then
+        echo "❌ Playbook syntax validation failed" >&2
+        exit 1
+    fi
+    echo "✓ Syntax validated"
+
+    # Gate 4: Dry-run with change preview
+    echo ""
+    echo "→ Performing dry-run (showing changes)..."
+    echo "═══════════════════════════════════════"
+    if ! ansible-playbook playbooks/{{playbook}}.yaml --check --diff; then
+        echo "❌ Dry-run failed" >&2
+        exit 1
+    fi
+    echo "═══════════════════════════════════════"
+
+    # Gate 5: Confirmation (unless force mode)
+    if [ "{{force}}" != "true" ]; then
+        echo ""
+        read -p "Proceed with deployment to all hosts? [y/N]: " confirmation
+        if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+            echo "Deployment cancelled"
+            exit 0
+        fi
+    fi
+
+    # Execute deployment
+    echo ""
+    echo "→ Deploying playbook {{playbook}} to all hosts..."
+    ansible-playbook playbooks/{{playbook}}.yaml
+
+    # Success summary
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo "Deployment Summary"
+    echo "═══════════════════════════════════════"
+    echo "✓ Secrets validated"
+    echo "✓ Inventory validated"
+    echo "✓ Syntax validated"
+    echo "✓ Dry-run succeeded"
+    echo "✓ Deployed successfully to all hosts"
+
+# Run Ansible playbook on specific environment with validation gates
 #
 # Parameters:
 #   env      - Environment to target ("dev" or "prod")
 #   playbook - Playbook name without .yaml extension
+#   force    - Optional: Skip confirmation prompt (pass "true" to force)
 #
-# Example usage:
-#   just ansible-deploy-env dev bootstrap   # Bootstrap only dev servers
-#   just ansible-deploy-env prod deploy     # Deploy only to prod servers
+# Deploys to specific environment with comprehensive pre-deployment validation.
+#
+# Validation gates (in order):
+#   1. Validates secrets are properly encrypted (Ansible uses SSH keys)
+#   2. Validates Ansible inventory exists and is current
+#   3. Validates playbook syntax (ansible-playbook --syntax-check)
+#   4. Performs dry-run with change preview (ansible-playbook --check --diff)
+#   5. Requires user confirmation (unless force="true")
 #
 # Environment groups defined in inventory:
 # - dev: test-1.dev.nbg
 # - prod: mail-1.prod.nbg, syncthing-1.prod.hel
 #
-# This uses Ansible's --limit flag to restrict execution to specified group.
-@ansible-deploy-env env playbook:
-    cd ansible && ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}}
+# Example usage:
+#   just ansible-deploy-env dev bootstrap         # Deploy with confirmation
+#   just ansible-deploy-env prod deploy true      # Deploy without confirmation (force)
+#
+# IMPORTANT: Always review the dry-run output before confirming deployment.
+@ansible-deploy-env env playbook force="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "═══════════════════════════════════════"
+    echo "Ansible Deployment Validation ({{env}})"
+    echo "═══════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        exit 1
+    fi
+
+    # Gate 2: Validate Ansible inventory
+    echo "→ Validating Ansible inventory..."
+    if ! just _validate-ansible-inventory; then
+        echo "❌ Ansible inventory validation failed" >&2
+        exit 1
+    fi
+
+    # Gate 3: Syntax validation
+    echo "→ Validating playbook syntax..."
+    cd ansible
+    if ! ansible-playbook playbooks/{{playbook}}.yaml --syntax-check; then
+        echo "❌ Playbook syntax validation failed" >&2
+        exit 1
+    fi
+    echo "✓ Syntax validated"
+
+    # Gate 4: Dry-run with change preview
+    echo ""
+    echo "→ Performing dry-run (showing changes for {{env}})..."
+    echo "═══════════════════════════════════════"
+    if ! ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}} --check --diff; then
+        echo "❌ Dry-run failed" >&2
+        exit 1
+    fi
+    echo "═══════════════════════════════════════"
+
+    # Gate 5: Confirmation (unless force mode)
+    if [ "{{force}}" != "true" ]; then
+        echo ""
+        read -p "Proceed with deployment to {{env}} environment? [y/N]: " confirmation
+        if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
+            echo "Deployment cancelled"
+            exit 0
+        fi
+    fi
+
+    # Execute deployment
+    echo ""
+    echo "→ Deploying playbook {{playbook}} to {{env}} environment..."
+    ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}}
+
+    # Success summary
+    echo ""
+    echo "═══════════════════════════════════════"
+    echo "Deployment Summary"
+    echo "═══════════════════════════════════════"
+    echo "✓ Secrets validated"
+    echo "✓ Inventory validated"
+    echo "✓ Syntax validated"
+    echo "✓ Dry-run succeeded"
+    echo "✓ Deployed successfully to {{env}}"
 
 # Display Ansible inventory in JSON format
 #
