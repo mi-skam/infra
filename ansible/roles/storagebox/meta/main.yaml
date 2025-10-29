@@ -1,0 +1,31 @@
+---
+galaxy_info:
+  role_name: storagebox
+  author: mi-skam
+  description: Configure and mount Hetzner Storage Box via CIFS/SMB
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - storage
+    - backup
+    - hetzner
+    - cifs
+    - mount
+
+dependencies:
+  - role: common
+    when: ansible_os_family in ["Debian", "RedHat"]

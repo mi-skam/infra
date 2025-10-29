@@ -1,0 +1,31 @@
+---
+# Common role default variables
+
+# Package management
+common_packages:
+  - vim
+  - htop
+  - curl
+  - wget
+  - git
+  - tmux
+  - jq
+
+common_additional_packages: []
+common_update_cache: true
+common_upgrade_packages: false
+common_upgrade_dist: false
+
+# Filesystem paths
+common_scripts_dir: /opt/scripts
+common_log_dir: /var/log/homelab
+common_directory_mode: '0755'
+
+# Bash configuration
+bash_aliases_path: /root/.bash_aliases
+bash_aliases_owner: root
+bash_aliases_group: root
+bash_aliases_mode: '0644'
+
+# Custom bash aliases (can be overridden in group_vars)
+custom_bash_aliases: []

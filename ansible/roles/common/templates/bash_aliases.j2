@@ -1,0 +1,27 @@
+# Homelab bash aliases - managed by Ansible
+# Last updated: {{ ansible_date_time.iso8601 }}
+
+# Common aliases
+alias ll='ls -lah'
+alias disk='df -h'
+alias logs='tail -f {{ common_log_dir }}/*.log'
+
+# Process monitoring
+alias ports='netstat -tulanp'
+alias meminfo='free -m -l -t'
+alias psmem='ps auxf | sort -nr -k 4'
+alias pscpu='ps auxf | sort -nr -k 3'
+
+# OS-specific update aliases
+{% if ansible_os_family == "Debian" %}
+alias update-system='apt update && apt upgrade -y'
+alias search-package='apt search'
+{% elif ansible_os_family == "RedHat" %}
+alias update-system='dnf update -y'
+alias search-package='dnf search'
+{% endif %}
+
+# Custom aliases from group_vars
+{% for alias in custom_bash_aliases | default([]) %}
+alias {{ alias.name }}='{{ alias.command }}'
+{% endfor %}

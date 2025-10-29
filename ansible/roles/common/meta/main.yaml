@@ -1,0 +1,28 @@
+---
+galaxy_info:
+  role_name: common
+  author: mi-skam
+  description: Base system configuration for all managed servers
+  license: MIT
+  min_ansible_version: "2.12"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: EL
+      versions:
+        - 8
+        - 9
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+  galaxy_tags:
+    - system
+    - baseline
+    - common
+    - infrastructure
+
+dependencies: []
