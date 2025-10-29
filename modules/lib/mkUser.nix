@@ -46,6 +46,7 @@
       })
     ];
 
-    users.mutableUsers = false;
+    # Note: users.mutableUsers should be set in modules/nixos/common.nix, not here
+    # (this option doesn't exist on Darwin)
   };
 }

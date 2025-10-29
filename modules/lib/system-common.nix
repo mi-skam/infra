@@ -7,10 +7,9 @@
   ];
   nixpkgs.config.allowUnfree = true;
 
-  # Time zone configuration (cross-platform)
-  time.timeZone = "Europe/Berlin";
+  # Time zone configuration (Linux only - Darwin handles this via system.defaults)
+  time.timeZone = lib.mkIf pkgs.stdenv.isLinux "Europe/Berlin";
 
   # Shell configuration (cross-platform)
-  programs.command-not-found.enable = false;
   programs.fish.enable = true;
 }

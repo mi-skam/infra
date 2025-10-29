@@ -1,8 +1,7 @@
 { pkgs, pkgs-unstable, lib, ... }:
 
 let
-  isDarwin = pkgs.stdenv.isDarwin;
-  isLinux = pkgs.stdenv.isLinux;
+  platform = import ../lib/platform.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -12,8 +11,8 @@ in
   ];
 
   programs = {
-    firefox.enable = isLinux;
-    ghostty.enable = isLinux;
+    firefox.enable = platform.isLinux;
+    ghostty.enable = platform.isLinux;
   };
 
 
@@ -24,14 +23,14 @@ in
     [
       # Keep packages that work well from nixpkgs on both platforms
     ]
-    # Darwin-specific packages  
-    ++ lib.optionals isDarwin [
+    # Darwin-specific packages
+    ++ lib.optionals platform.isDarwin [
       pkgs-unstable.obsidian
       # Keep only packages that work better from nixpkgs on Darwin
       # Most GUI apps are handled by Homebrew casks
     ]
     # Linux-only packages (GUI apps via nixpkgs)
-    ++ lib.optionals isLinux [
+    ++ lib.optionals platform.isLinux [
       brave
       vivaldi
       freecad-wayland

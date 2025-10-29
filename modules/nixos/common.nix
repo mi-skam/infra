@@ -35,6 +35,9 @@
 
   networking.firewall.allowPing = true;
 
+  # Disable mutable users (managed via Nix configuration)
+  users.mutableUsers = false;
+
   # Enable Docker daemon for development
   virtualisation.docker = {
     enable = true;

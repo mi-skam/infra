@@ -6,8 +6,7 @@
 }:
 
 let
-  isDarwin = pkgs.stdenv.isDarwin;
-  isLinux = pkgs.stdenv.isLinux;
+  platform = import ../lib/platform.nix { inherit pkgs; };
 in
 {
   imports = [
@@ -60,7 +59,7 @@ in
 
     ]
     # Linux-only packages
-    ++ lib.optionals isLinux [
+    ++ lib.optionals platform.isLinux [
 
       # System tools
       strace
@@ -75,7 +74,7 @@ in
       perf-tools
     ]
     # Darwin-specific packages
-    ++ lib.optionals isDarwin [
+    ++ lib.optionals platform.isDarwin [
       # macOS alternatives and specific tools
       # Docker Desktop is typically installed via homebrew/manually on macOS
 
