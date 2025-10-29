@@ -6,11 +6,11 @@
 # infrastructure automation (Terraform/Ansible) and local workstation setup.
 #
 # IMPORTANT: Set STOW_TARGET environment variable before running recipes.
-# Default behavior: If STOW_TARGET is not set, recipes will use ~ (home directory).
-# This follows the fail-early principle - explicit is better than implicit.
+# Recipes will fail immediately if STOW_TARGET is not set (fail-early principle).
+# Export the variable before running: export STOW_TARGET=~
 
 # Variables
-target := env_var_or_default("STOW_TARGET", "~")
+target := env_var("STOW_TARGET")
 
 # ============================================================================
 # Dotfiles Management (Private Helpers)
@@ -51,7 +51,7 @@ target := env_var_or_default("STOW_TARGET", "~")
 # It ensures all dependencies (like GNU Stow itself) are installed before
 # attempting to stow dotfiles.
 #
-# Target directory can be customized via STOW_TARGET env var (default: ~).
+# Target directory must be set via STOW_TARGET env var (e.g., export STOW_TARGET=~).
 @install-all: install-brew install-dotfiles
 
 # Install Homebrew packages from Brewfile
