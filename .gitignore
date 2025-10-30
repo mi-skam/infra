@@ -48,6 +48,7 @@ terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/terraform.tfstate.*.backup
+terraform/terraform.tfstate.backup-*
 terraform/.terraform.tfstate.lock.info
 terraform/*.tfvars
 !terraform/*.tfvars.example
