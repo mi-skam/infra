@@ -553,6 +553,13 @@ _validate-ansible-inventory:
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # Check Docker is running
+    if ! docker info &> /dev/null; then
+        echo "❌ Error: Docker is not running" >&2
+        echo "Please start Docker and try again" >&2
+        exit 1
+    fi
+
     echo "════════════════════════════════════════"
     echo "  Ansible Molecule Testing"
     echo "════════════════════════════════════════"

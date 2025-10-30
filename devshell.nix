@@ -17,6 +17,9 @@ let
     hcloud # Hetzner Cloud CLI
     jq # JSON processing for scripts
     just # Task runner
+    python311 # Python for Molecule testing
+    python311Packages.pip
+    python311Packages.virtualenv
   ];
 
   # Platform-specific packages
@@ -30,6 +33,7 @@ let
     with pkgs;
     lib.optionals isLinux [
       # nixos-rebuild is already included in commonPackages
+      docker # Docker CLI for Molecule (Linux only - macOS uses Docker Desktop)
     ];
 
 in
@@ -54,6 +58,29 @@ pkgs.mkShell {
       echo "✓ Loaded HCLOUD_TOKEN from secrets/hetzner.yaml"
     }
 
+    # Add Docker to PATH on macOS (Docker Desktop installs to /usr/local/bin)
+    ${if isDarwin then ''
+      if [ -f /usr/local/bin/docker ]; then
+        export PATH="/usr/local/bin:$PATH"
+      fi
+    '' else ""}
+
+    # Create and activate Python virtual environment for Molecule
+    if [ ! -d .venv ]; then
+      echo "📦 Creating Python virtual environment for Molecule..."
+      ${pkgs.python311}/bin/python -m venv .venv
+      .venv/bin/pip install --quiet molecule molecule-docker pytest-testinfra ansible-lint
+      echo "✓ Molecule environment created"
+    fi
+    source .venv/bin/activate
+
+    # Install Ansible collections if not present
+    if [ ! -d ansible/collections ]; then
+      echo "📦 Installing Ansible collections..."
+      cd ansible && ansible-galaxy collection install -r requirements.yml && cd ..
+      echo "✓ Ansible collections installed"
+    fi
+
     echo "🚀 Infrastructure Development Shell"
     echo ""
     echo "Available tools:"
@@ -62,6 +89,7 @@ pkgs.mkShell {
     echo "  • home-manager   - Build Home Manager configurations"
     echo "  • opentofu       - Infrastructure as Code (terraform)"
     echo "  • ansible        - Configuration management"
+    echo "  • molecule       - Ansible role testing framework"
     echo "  • hcloud         - Hetzner Cloud CLI"
     echo "  • just           - Task runner (see justfile)"
     echo "  • sops/age       - Secrets management"
@@ -71,6 +99,10 @@ pkgs.mkShell {
     echo "  just tf-apply             # Apply infrastructure changes"
     echo "  just ansible-ping         # Test server connectivity"
     echo "  just ansible-deploy       # Deploy configurations"
+    echo ""
+    echo "Testing:"
+    echo "  just test-ansible         # Run all Molecule tests"
+    echo "  cd ansible && molecule test -s common    # Test specific role"
     echo ""
     echo "NixOS/Darwin:"
     echo "  sudo nixos-rebuild switch --flake .#xmsi"
