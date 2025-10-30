@@ -486,6 +486,43 @@ _validate-ansible-inventory:
     echo "✅ All NixOS VM tests passed"
     echo "════════════════════════════════════════"
 
+# Run Terraform validation test suite
+#
+# Runs terraform/run-tests.sh which executes all Terraform validation tests:
+# - Syntax validation: Verifies HCL syntax is valid (tofu validate)
+# - Plan validation: Checks plan generation without API calls (tofu plan -backend=false)
+# - Import script validation: Validates import.sh syntax and import commands
+# - Output validation: Verifies required outputs are defined in outputs.tf
+#
+# Tests complete in <10 seconds (no API calls required). Returns exit code 0
+# if all tests pass, non-zero on any test failure. Test failures include
+# detailed error messages and troubleshooting hints.
+#
+# Example usage:
+#   just test-terraform    # Run all Terraform tests
+#
+# NOTE: Tests run locally without requiring Hetzner credentials or state file.
+# They validate configuration correctness using dummy tokens and -backend=false.
+@test-terraform:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "════════════════════════════════════════"
+    echo "  Terraform Validation Testing"
+    echo "════════════════════════════════════════"
+    echo ""
+
+    if ! terraform/run-tests.sh; then
+        echo ""
+        echo "❌ Terraform tests failed" >&2
+        exit 1
+    fi
+
+    echo ""
+    echo "════════════════════════════════════════"
+    echo "✅ All Terraform tests passed"
+    echo "════════════════════════════════════════"
+
 # ============================================================================
 # Secrets Management (Private Helpers)
 # ============================================================================
