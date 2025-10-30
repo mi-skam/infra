@@ -1,8 +1,13 @@
 # Development environment variables
 ---
-# Less strict settings for development
-ssh_password_authentication: true
+# Less strict settings for development (but still no password auth)
+ssh_password_authentication: false
 ssh_permit_root_login: "yes"
+
+# Development tools
+additional_packages:
+  - strace
+  - tcpdump
 
 # Backup configuration (for testing)
 # Storage Box mount settings (loaded from secrets/backup.yaml)
