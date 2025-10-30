@@ -1,0 +1,58 @@
+---
+- name: Verify backup role
+  hosts: all
+  become: true
+  tasks:
+    # restic installation verification
+    - name: Check restic is installed
+      command: which restic
+      changed_when: false
+      register: restic_installed
+
+    - name: Verify restic binary is executable
+      stat:
+        path: "{{ restic_installed.stdout }}"
+      register: restic_binary
+      failed_when: not restic_binary.stat.exists or not restic_binary.stat.executable
+
+    # Backup script verification
+    - name: Check backup script exists
+      stat:
+        path: /usr/local/bin/restic_backup.sh
+      register: backup_script
+      failed_when: not backup_script.stat.exists or not backup_script.stat.executable
+
+    # restic repository verification
+    - name: Check restic repository initialized
+      stat:
+        path: /tmp/restic-repo/config
+      register: restic_repo
+      failed_when: not restic_repo.stat.exists
+
+    # Systemd units verification
+    - name: Check systemd service file exists
+      stat:
+        path: /etc/systemd/system/restic-backup.service
+      register: backup_service
+      failed_when: not backup_service.stat.exists
+
+    - name: Check systemd timer file exists
+      stat:
+        path: /etc/systemd/system/restic-backup.timer
+      register: backup_timer
+      failed_when: not backup_timer.stat.exists
+
+    - name: Verify backup timer is enabled
+      systemd:
+        name: restic-backup.timer
+        enabled: true
+      check_mode: yes
+      register: timer_check
+      failed_when: timer_check.changed
+
+    # Log file verification
+    - name: Check backup log file exists
+      stat:
+        path: /var/log/restic-backup.log
+      register: backup_log
+      failed_when: not backup_log.stat.exists

@@ -1,0 +1,60 @@
+---
+- name: Verify common role
+  hosts: all
+  become: true
+  tasks:
+    - name: Check /opt/scripts directory exists with correct permissions
+      stat:
+        path: /opt/scripts
+      register: scripts_dir
+      failed_when: not scripts_dir.stat.exists or scripts_dir.stat.mode != '0755'
+
+    - name: Check /var/log/homelab directory exists
+      stat:
+        path: /var/log/homelab
+      register: log_dir
+      failed_when: not log_dir.stat.exists
+
+    - name: Verify common packages are installed (Debian/Ubuntu)
+      command: which {{ item }}
+      changed_when: false
+      loop:
+        - vim
+        - htop
+        - curl
+        - wget
+        - git
+        - tmux
+        - jq
+      when: ansible_os_family == "Debian"
+
+    - name: Verify common packages are installed (RedHat)
+      command: which {{ item }}
+      changed_when: false
+      loop:
+        - vim
+        - htop
+        - curl
+        - wget
+        - git
+        - tmux
+        - jq
+      when: ansible_os_family == "RedHat"
+
+    - name: Check bash aliases file exists
+      stat:
+        path: /root/.bash_aliases
+      register: aliases_file
+      failed_when: not aliases_file.stat.exists
+
+    - name: Verify ll alias exists in bash_aliases
+      shell: grep -q "alias ll=" /root/.bash_aliases
+      changed_when: false
+
+    - name: Verify disk alias exists in bash_aliases
+      shell: grep -q "alias disk=" /root/.bash_aliases
+      changed_when: false
+
+    - name: Verify logs alias exists in bash_aliases
+      shell: grep -q "alias logs=" /root/.bash_aliases
+      changed_when: false

@@ -523,6 +523,72 @@ _validate-ansible-inventory:
     echo "✅ All Terraform tests passed"
     echo "════════════════════════════════════════"
 
+# Run Ansible Molecule tests for all roles
+#
+# Runs Molecule test scenarios for Ansible roles to verify:
+# - common role: Directories created, packages installed, bash aliases deployed
+# - monitoring role: node_exporter and Promtail installed and configured
+# - backup role: restic installed, backup scripts created, systemd timers configured
+#
+# Each scenario includes:
+# - Role application (converge)
+# - Idempotency testing (second run has changed=0)
+# - Verification tests (files exist, services configured)
+#
+# Tests run in Docker containers (Debian 12, Ubuntu 24.04, Rocky Linux 9) and
+# complete in <10 minutes total. Returns exit code 0 if all tests pass,
+# non-zero on any test failure.
+#
+# Example usage:
+#   just test-ansible              # Run all Molecule tests
+#
+# To test individual roles:
+#   cd ansible && molecule test -s common
+#   cd ansible && molecule test -s monitoring
+#   cd ansible && molecule test -s backup
+#
+# NOTE: Requires Docker to be running. Molecule creates temporary containers
+# that are destroyed after tests complete.
+@test-ansible:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "════════════════════════════════════════"
+    echo "  Ansible Molecule Testing"
+    echo "════════════════════════════════════════"
+    echo ""
+
+    # Test common role
+    echo "→ Testing common role..."
+    if ! (cd ansible && molecule test -s common); then
+        echo "❌ common role tests failed" >&2
+        exit 1
+    fi
+    echo "✓ common role tests passed"
+    echo ""
+
+    # Test monitoring role
+    echo "→ Testing monitoring role..."
+    if ! (cd ansible && molecule test -s monitoring); then
+        echo "❌ monitoring role tests failed" >&2
+        exit 1
+    fi
+    echo "✓ monitoring role tests passed"
+    echo ""
+
+    # Test backup role
+    echo "→ Testing backup role..."
+    if ! (cd ansible && molecule test -s backup); then
+        echo "❌ backup role tests failed" >&2
+        exit 1
+    fi
+    echo "✓ backup role tests passed"
+    echo ""
+
+    echo "════════════════════════════════════════"
+    echo "✅ All Ansible Molecule tests passed"
+    echo "════════════════════════════════════════"
+
 # ============================================================================
 # Secrets Management (Private Helpers)
 # ============================================================================
