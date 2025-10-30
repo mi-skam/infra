@@ -65,5 +65,8 @@ ansible/.ansible/
 ansible/facts/
 /tmp/ansible_facts
 
+# Python
+.venv/
+
 # Claude Code
 .codemachine/

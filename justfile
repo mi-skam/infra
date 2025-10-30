@@ -553,6 +553,18 @@ _validate-ansible-inventory:
     #!/usr/bin/env bash
     set -euo pipefail
 
+    # Add Docker to PATH (macOS Docker Desktop location)
+    export PATH="/usr/local/bin:$PATH"
+
+    # Ensure venv is activated (molecule and ansible-core installed there)
+    if [ -f .venv/bin/activate ]; then
+        source .venv/bin/activate
+    else
+        echo "❌ Error: Python venv not found at .venv/" >&2
+        echo "Run: python3 -m venv .venv && .venv/bin/pip install molecule molecule-docker ansible-core" >&2
+        exit 1
+    fi
+
     # Check Docker is running
     if ! docker info &> /dev/null; then
         echo "❌ Error: Docker is not running" >&2
