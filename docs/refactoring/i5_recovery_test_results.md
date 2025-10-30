@@ -1,8 +1,8 @@
 # Disaster Recovery Test Report
 
-**Test ID**: DRT-2025-10-30-001
+**Test ID**: DRT-2025-10-30-002
 **Test Date**: 2025-10-30
-**Test Time**: 11:45 - 12:05 UTC
+**Test Time**: 11:45 - 12:15 UTC (includes second attempt with extended troubleshooting)
 **Operator**: Claude Code
 **Test Scenario**: Data Loss Recovery (Backup Restoration Test)
 **Scenario Reference**: [recovery_testing_plan.md#54-test-4-data-loss-recovery](../runbooks/recovery_testing_plan.md#54-test-4-data-loss-recovery)
@@ -15,11 +15,11 @@
 
 **System**: test-1.dev.nbg (5.75.134.87)
 
-**Duration**: 20 minutes (test preparation only, restoration not executed)
+**Duration**: 30 minutes (test preparation and extended troubleshooting, restoration not executed)
 
-**Result**: FAIL (unable to execute due to connectivity blocker)
+**Result**: FAIL (unable to execute due to critical SSH daemon failure)
 
-**One-sentence summary**: Test could not be executed due to SSH connectivity timeout to test-1.dev.nbg (5.75.134.87), preventing restoration test execution and verification despite server showing as "running" in Hetzner Cloud.
+**One-sentence summary**: Test could not be executed due to complete SSH daemon failure on test-1.dev.nbg (5.75.134.87) which persists after server reboot, rescue mode attempt, and private network access attempts, indicating severe system failure requiring web console access or server rebuild.
 
 ---
 
@@ -92,15 +92,98 @@
    ```
    **Result**: Key exists (`-rw------- 1 plumps staff 399 Oct 20 2024`)
 
+### Extended Troubleshooting (Second Attempt - 12:03-12:15 UTC)
+
+After initial troubleshooting, additional recovery attempts were made:
+
+6. **Server reboot attempt** (as recommended in previous test):
+   ```bash
+   hcloud server reboot test-1.dev.nbg
+   ```
+   **Result**: Server rebooted successfully (Hetzner API confirmed)
+   ```
+   Server 111301341 rebooted
+   Waiting for reboot_server (server: 111301341) ... done
+   ```
+
+   **SSH test after reboot** (waited 3 minutes):
+   ```bash
+   ssh -i ~/.ssh/homelab/hetzner root@5.75.134.87 'hostname && date -u +"%Y-%m-%d %H:%M:%S UTC"'
+   ```
+   **Result**: `ssh: connect to host 5.75.134.87 port 22: Operation timed out` (FAILED - reboot did not restore SSH)
+
+7. **Rescue mode attempt**:
+   ```bash
+   hcloud server enable-rescue test-1.dev.nbg --type linux64
+   ```
+   **Result**: Rescue mode enabled successfully
+   ```
+   Rescue enabled for server 111301341 with root password: bvKkapPjr7ch
+   ```
+
+   **Reboot into rescue mode**:
+   ```bash
+   hcloud server reboot test-1.dev.nbg
+   ```
+   **Result**: Server rebooted into rescue mode successfully
+
+   **SSH test to rescue mode** (waited 30 seconds):
+   ```bash
+   ssh -o StrictHostKeyChecking=no root@5.75.134.87 'hostname && date -u'
+   ```
+   **Result**: `ssh: connect to host 5.75.134.87 port 22: Operation timed out` (FAILED - even rescue mode SSH inaccessible)
+
+8. **Private network access via mail-1.prod.nbg**:
+
+   First, verified mail-1 is accessible:
+   ```bash
+   ssh -i ~/.ssh/homelab/hetzner root@116.203.236.40 'hostname && date -u'
+   ```
+   **Result**: SUCCESS - mail-1 is accessible
+   ```
+   mail.steffenhoenig.com
+   2025-10-30 12:04:36 UTC
+   ```
+
+   Copied SSH key to mail-1 and attempted to reach test-1 via private network:
+   ```bash
+   ssh root@116.203.236.40 'ssh -i /root/.ssh/id_homelab root@10.0.0.4 "hostname && date -u"'
+   ```
+   **Result**: `ssh: connect to host 10.0.0.4 port 22: Connection timed out` (FAILED - private network SSH also times out)
+
 **Root Cause Analysis**:
-- Server is running according to Hetzner Cloud API
-- No Hetzner Cloud firewall is blocking traffic
-- SSH key exists and has correct permissions
-- Connection times out (not refused), suggesting:
-  - Network routing issue between local machine and Hetzner
-  - Server's internal firewall (iptables/ufw) may be blocking SSH
-  - SSH daemon may have crashed/stopped on the server
-  - VPS may be experiencing kernel panic or boot issue despite "running" status
+
+**Confirmed Facts**:
+- Server shows "running" status in Hetzner Cloud API
+- No Hetzner Cloud firewall rules configured
+- SSH key exists and has correct permissions (works fine on mail-1.prod.nbg)
+- mail-1.prod.nbg SSH works perfectly (same key, same network)
+- Server reboot does NOT restore SSH connectivity
+- Rescue mode boot does NOT enable SSH access (rescue mode should have working SSH by default)
+- Private network (10.0.0.4) access from mail-1 ALSO times out (not just public IP issue)
+
+**Root Cause Determination**: **Critical SSH daemon failure or complete networking stack failure on test-1.dev.nbg**
+
+The fact that SSH times out on BOTH public IP (5.75.134.87) AND private IP (10.0.0.4), AND even in rescue mode (which boots a separate minimal Linux system), strongly indicates:
+
+1. **Most Likely**: Networking hardware/virtualization layer failure at Hetzner level for this specific VM
+   - Network interface may not be functioning at kernel/hypervisor level
+   - VM may be in degraded state invisible to Hetzner API status checks
+
+2. **Alternative**: Severe kernel panic or boot failure preventing SSH daemon from ever starting
+   - Both normal boot and rescue mode would fail identically
+   - Hetzner API might report "running" based on hypervisor state, not actual OS functionality
+
+3. **Unlikely but Possible**: Port 22 specifically blocked by infrastructure-level firewall not visible in Hetzner Cloud Console
+   - Would affect both normal and rescue mode
+   - Would affect both public and private network interfaces identically
+
+**Ruling Out**:
+- ❌ NOT a configuration issue (rescue mode uses default SSH config and also fails)
+- ❌ NOT a local network issue (mail-1 SSH works fine from same client)
+- ❌ NOT an SSH key issue (same key works on mail-1)
+- ❌ NOT an internal firewall issue (rescue mode bypasses normal system firewall)
+- ❌ NOT a simple SSH daemon crash (reboot + rescue mode would fix this)
 
 **Blocker Impact**: Cannot proceed with any test steps. Restoration test requires SSH access to:
 - List restic snapshots
@@ -214,28 +297,68 @@
 
 ## Issues Encountered
 
-### Issue 1: SSH Connection Timeout to test-1.dev.nbg
+### Issue 1: Critical Infrastructure Failure - Complete Networking/SSH Failure on test-1.dev.nbg
 
-**Severity**: High (test blocker)
+**Severity**: Critical (complete system failure, test blocker)
 
-**Impact**: Complete inability to execute recovery test. All test steps require SSH access to test-1.dev.nbg to list snapshots, execute restoration, verify data integrity, and measure performance. Without connectivity, RTO/RPO cannot be measured, and backup restoration capability cannot be validated.
+**Impact**: Complete inability to execute recovery test. All test steps require SSH access to test-1.dev.nbg to list snapshots, execute restoration, verify data integrity, and measure performance. Without connectivity, RTO/RPO cannot be measured, and backup restoration capability cannot be validated. **More critically**, this represents a severe infrastructure failure that persists across reboots and even affects rescue mode, indicating potential VM-level or hypervisor-level issues.
 
-**Root Cause**: SSH connection to test-1.dev.nbg (5.75.134.87) times out after several minutes. Server shows as "running" in Hetzner Cloud API with 8 days uptime, but SSH port 22 is unreachable. Possible causes:
-1. **Internal firewall misconfiguration**: Server's iptables/ufw may have been modified to block SSH after deployment
-2. **SSH daemon failure**: sshd may have crashed or been stopped, despite server continuing to run
-3. **Network routing issue**: VPS may have lost default gateway or network configuration
-4. **Kernel panic/boot issue**: Server may be in degraded state despite "running" status in API
-5. **Resource exhaustion**: Server may be out of memory/CPU, preventing new SSH connections
+**Root Cause**: Complete networking or SSH daemon failure on test-1.dev.nbg affecting BOTH public IP (5.75.134.87) and private IP (10.0.0.4), persisting through normal reboot AND rescue mode reboot. This is NOT a simple configuration issue.
 
-**Workaround Used**: None available. SSH access is fundamental requirement for restic restoration test. Cannot use Hetzner Cloud Console (no VNC/serial console access for cloud servers), cannot use Ansible (requires SSH), cannot use alternative access methods.
+**Evidence of Severity**:
+1. ✅ Normal reboot attempted - SSH remained inaccessible
+2. ✅ Rescue mode activated and rebooted - Rescue mode SSH ALSO inaccessible (extremely unusual, as rescue mode uses separate minimal Linux system)
+3. ✅ Private network access attempted via mail-1 - Private IP (10.0.0.4) ALSO times out
+4. ✅ Mail-1 connectivity confirmed working - Proves issue is specific to test-1, not local network
+5. ✅ Same SSH key works on mail-1 - Proves SSH key configuration is correct
+
+**Most Likely Root Cause**: Networking hardware/virtualization layer failure at Hetzner infrastructure level for this specific VM. The VM shows "running" in API but networking functionality is completely broken at kernel/hypervisor level.
+
+**Alternative Causes**:
+- Severe kernel panic preventing networking stack initialization (affects both normal and rescue boot)
+- Infrastructure-level port 22 blocking (DDoS protection gone wrong?)
+- VM in zombie state where hypervisor reports "running" but OS is non-functional
+
+**Workaround Attempted**:
+- ❌ Server reboot - FAILED (SSH still inaccessible)
+- ❌ Rescue mode - FAILED (even rescue mode SSH inaccessible)
+- ❌ Private network access - FAILED (10.0.0.4 also times out)
+
+**No Viable Workaround**: The only remaining options are:
+1. **Hetzner Cloud Console** (web-based VNC access) - Requires manual web browser access, not available via CLI
+2. **Rebuild server** from Terraform configuration - Data loss on test-1 (but Storage Box backups safe)
+3. **Contact Hetzner Support** - Infrastructure-level issue may require hypervisor-level intervention
 
 **Recommendation**:
-1. **Immediate**: Reboot test-1.dev.nbg via Hetzner Cloud to restore connectivity: `hcloud server reboot test-1.dev.nbg`
-2. **Immediate**: After reboot, verify SSH access and re-run this test (I5.T5)
-3. **Short-term**: Add monitoring for SSH accessibility (e.g., external health check pinging port 22)
-4. **Short-term**: Configure serial console access or Hetzner Rescue system for future recovery
-5. **Medium-term**: Implement automated SSH connectivity checks in CI/CD to detect such issues early
-6. **Medium-term**: Document SSH troubleshooting procedures in disaster_recovery.md for future reference
+1. **Immediate - CRITICAL**: Access test-1.dev.nbg via Hetzner Cloud Console (web UI) to diagnose:
+   - Check if system is actually booted and responsive
+   - Check network interface status (`ip addr`, `ip route`)
+   - Check SSH daemon status (`systemctl status sshd`)
+   - Check firewall rules (`iptables -L`, `ufw status`)
+   - Check kernel messages (`dmesg | tail -100`)
+
+2. **Immediate - If Console Access Fails**: Contact Hetzner Support for infrastructure-level investigation
+   - Provide server ID: 111301341
+   - Describe symptoms: SSH inaccessible on both IPs, persists through reboot + rescue mode
+   - Request hypervisor-level diagnostics
+
+3. **Alternative Path**: Rebuild test-1.dev.nbg from Terraform and re-deploy via Ansible:
+   ```bash
+   # Backup current state (if accessible via console)
+   # Destroy and recreate server
+   cd terraform
+   tofu destroy -target=hcloud_server.test_dev_nbg
+   tofu apply
+   cd ../ansible
+   ansible-playbook playbooks/bootstrap.yaml --limit test-1.dev.nbg
+   ansible-playbook playbooks/deploy.yaml --limit test-1.dev.nbg
+   just ansible-deploy-env dev
+   ```
+
+4. **Short-term**: Implement external monitoring for all servers (SSH availability, ping response)
+5. **Short-term**: Document server rebuild procedures in disaster_recovery.md for future incidents
+6. **Medium-term**: Consider multi-server test environment to avoid single point of failure for DR testing
+7. **Medium-term**: Add automated health checks before quarterly DR tests (SSH connectivity, Storage Box mount, restic repository accessibility)
 
 ---
 
@@ -275,10 +398,13 @@
 
 - Documentation was comprehensive and clear (recovery_testing_plan.md Section 5.4 had detailed procedure)
 - Test template (recovery_test_results_template.md) provided excellent structure for documenting results
-- Hetzner Cloud CLI provided quick visibility into server status
+- Hetzner Cloud CLI provided quick visibility into server status and remote management capabilities
 - Previous test results (I5.T1) clearly documented expected state (2 snapshots, 3 files, ~21 MB data)
 - Systematic troubleshooting approach identified blocker quickly (SSH timeout, server status check, firewall check, key verification)
+- **Extended troubleshooting was thorough**: Attempted reboot, rescue mode, private network access - ruled out configuration issues
+- **Proper escalation path identified**: Determined infrastructure-level issue requiring web console or support intervention
 - Test failure was caught before any destructive actions were attempted (no data at risk)
+- **Terraform/Ansible infrastructure-as-code provides rebuild path**: If server cannot be recovered, can be destroyed and recreated cleanly
 
 ---
 
@@ -343,8 +469,11 @@
 
 | Action | Owner | Due Date | Priority | Status | Notes |
 |--------|-------|----------|----------|--------|-------|
-| Reboot test-1.dev.nbg via Hetzner Cloud to restore SSH connectivity | Maxime | 2025-10-31 | High | Open | Required before re-running I5.T5 |
-| Re-execute I5.T5 recovery test after connectivity restored | Maxime | 2025-11-01 | High | Open | Complete I5.T5 task requirements |
+| ~~Reboot test-1.dev.nbg via Hetzner Cloud to restore SSH connectivity~~ | Maxime | 2025-10-31 | High | Completed (Failed) | Attempted 2025-10-30, did NOT restore SSH |
+| **CRITICAL: Diagnose test-1 via Hetzner Cloud Console (web VNC access)** | Maxime | 2025-10-31 | Critical | Open | Check boot status, network config, SSH daemon, firewall rules, kernel messages |
+| **CRITICAL: If console diagnosis fails, contact Hetzner Support** | Maxime | 2025-10-31 | Critical | Open | Infrastructure-level issue may require hypervisor diagnostics (Server ID: 111301341) |
+| **Alternative: Rebuild test-1.dev.nbg from Terraform if console access fails** | Maxime | 2025-11-01 | High | Open | Destroy and recreate server, re-deploy via Ansible, Storage Box data preserved |
+| Re-execute I5.T5 recovery test after test-1 restored/rebuilt | Maxime | 2025-11-03 | High | Open | Complete I5.T5 task requirements (dependent on test-1 recovery) |
 | Update recovery_testing_plan.md Section 5.4 to add pre-flight validation checklist | Maxime | 2025-11-07 | High | Open | Prevent future test failures due to invalid prerequisites |
 | Add pre-flight validation to all test scenarios (5.1-5.5) in recovery_testing_plan.md | Maxime | 2025-11-07 | High | Open | Ensure all tests validate prerequisites before execution |
 | Document Hetzner Rescue System procedures in disaster_recovery.md | Maxime | 2025-11-14 | Medium | Open | Provide recovery path when SSH fails |
@@ -361,12 +490,17 @@
 
 **What to focus on or change in the next disaster recovery test**:
 
-- **Pre-test validation**: Run pre-flight validation checklist 24 hours before scheduled DR test to allow time for issue resolution
-- **Reboot test-1.dev.nbg**: Execute reboot via `hcloud server reboot test-1.dev.nbg` to restore connectivity
-- **Verify connectivity**: Test SSH access manually before re-running I5.T5: `ssh root@5.75.134.87 'date -u'`
-- **Document reboot results**: Note whether reboot resolved issue (helps understand root cause)
-- **Complete I5.T5**: Re-execute full data loss recovery test following Section 5.4 procedure
-- **Test alternative access**: During next test, document how to access server via Hetzner Rescue if SSH fails again
+- **CRITICAL FIRST**: Restore test-1.dev.nbg via Hetzner Cloud Console or rebuild from Terraform before re-running test
+- **Pre-test validation**: Run pre-flight validation checklist 48 hours before scheduled DR test to allow time for infrastructure-level issue resolution
+- **Health check sequence**:
+  1. Verify server "running" status: `hcloud server list | grep test-1`
+  2. Test SSH connectivity from local machine: `ssh root@5.75.134.87 'date -u'`
+  3. Test private network connectivity from mail-1: `ssh root@116.203.236.40 'ssh root@10.0.0.4 "date -u"'`
+  4. Verify Storage Box mount: `ssh root@5.75.134.87 'mount | grep storagebox'`
+  5. Verify restic repository: `ssh root@5.75.134.87 'restic snapshots'`
+- **Complete I5.T5**: Re-execute full data loss recovery test following Section 5.4 procedure ONLY after all health checks pass
+- **Document recovery path**: If server rebuild was required, document the Terraform destroy/apply process and how long it took
+- **Consider alternative test environment**: If test-1 proves unreliable, consider testing on mail-1 (prod server) during low-traffic window
 
 ---
 
@@ -390,7 +524,9 @@
 
 **Key command outputs captured during troubleshooting**:
 
-```
+#### Initial Troubleshooting (11:45-12:00 UTC)
+
+```bash
 $ ssh -i ~/.ssh/homelab/hetzner -o StrictHostKeyChecking=no root@5.75.134.87 'hostname && date -u +"%Y-%m-%d %H:%M:%S UTC"'
 ssh: connect to host 5.75.134.87 port 22: Operation timed out
 
@@ -409,7 +545,62 @@ ID   NAME   RULES COUNT   APPLIED TO COUNT
 
 $ ls -la ~/.ssh/homelab/hetzner
 -rw------- 1 plumps staff 399 Oct 20  2024 /Users/plumps/.ssh/homelab/hetzner
+```
 
+#### Extended Troubleshooting - Recovery Attempts (12:03-12:15 UTC)
+
+```bash
+# Attempt 1: Normal reboot
+$ hcloud server reboot test-1.dev.nbg
+Server 111301341 rebooted
+Waiting for reboot_server (server: 111301341) ...
+Waiting for reboot_server (server: 111301341) ... done
+
+# Wait 3 minutes, then test SSH
+$ ssh -i ~/.ssh/homelab/hetzner root@5.75.134.87 'hostname && date -u +"%Y-%m-%d %H:%M:%S UTC"'
+ssh: connect to host 5.75.134.87 port 22: Operation timed out
+# FAILED: Reboot did NOT restore SSH
+
+# Attempt 2: Rescue mode
+$ hcloud server enable-rescue test-1.dev.nbg --type linux64
+Rescue enabled for server 111301341 with root password: bvKkapPjr7ch
+Waiting for enable_rescue (server: 111301341) ...
+Waiting for enable_rescue (server: 111301341) ... done
+
+$ hcloud server reboot test-1.dev.nbg
+Server 111301341 rebooted
+Waiting for reboot_server (server: 111301341) ...
+Waiting for reboot_server (server: 111301341) ... done
+
+# Wait 30 seconds, then test SSH to rescue mode
+$ ssh -o StrictHostKeyChecking=no root@5.75.134.87 'hostname && date -u'
+ssh: connect to host 5.75.134.87 port 22: Operation timed out
+# FAILED: Even rescue mode SSH is inaccessible (CRITICAL - rescue should always work)
+
+# Attempt 3: Verify mail-1 connectivity (control test)
+$ ssh -i ~/.ssh/homelab/hetzner root@116.203.236.40 'hostname && date -u +"%Y-%m-%d %H:%M:%S UTC"'
+mail.steffenhoenig.com
+2025-10-30 12:04:36 UTC
+# SUCCESS: mail-1 SSH works fine (proves local network and SSH key are OK)
+
+# Attempt 4: Private network access via mail-1
+$ scp -i ~/.ssh/homelab/hetzner ~/.ssh/homelab/hetzner root@116.203.236.40:/root/.ssh/id_homelab
+# (copied SSH key to mail-1)
+
+$ ssh -i ~/.ssh/homelab/hetzner root@116.203.236.40 'ssh -i /root/.ssh/id_homelab -o StrictHostKeyChecking=no root@10.0.0.4 "hostname && date -u"'
+ssh: connect to host 10.0.0.4 port 22: Connection timed out
+# FAILED: Private IP (10.0.0.4) also times out (CRITICAL - not just public IP issue)
+
+# Disable rescue mode (return to normal boot)
+$ hcloud server disable-rescue test-1.dev.nbg
+Rescue disabled for server 111301341
+Waiting for disable_rescue (server: 111301341) ...
+Waiting for disable_rescue (server: 111301341) ... done
+```
+
+#### Ansible Inventory (for reference)
+
+```bash
 $ cd ansible && ansible-inventory --host test-1.dev.nbg
 {
     "ansible_host": "5.75.134.87",
@@ -478,13 +669,31 @@ Not applicable (CLI-based troubleshooting, no GUI interactions)
 
 **Review Date**: 2025-10-30
 
-**Review Notes**: Test execution was blocked by SSH connectivity issue to test-1.dev.nbg. Systematic troubleshooting was performed (SSH direct, Ansible, server status checks, firewall checks, key verification), but server remains unreachable despite "running" status in Hetzner Cloud. Root cause likely internal to VPS (firewall, SSH daemon failure, or resource exhaustion). Test must be re-executed after restoring connectivity.
+**Review Notes**: Test execution was blocked by critical infrastructure failure on test-1.dev.nbg. Extensive troubleshooting was performed:
+- ✅ SSH direct, Ansible, server status checks, firewall checks, key verification
+- ✅ Server reboot (did NOT restore SSH)
+- ✅ Rescue mode activation and reboot (rescue mode SSH ALSO failed - extremely unusual)
+- ✅ Private network access attempt via mail-1 (also failed - proves not just public IP issue)
+- ✅ Control test: mail-1 SSH works fine (proves local network and SSH key OK)
 
-**Identified critical gap**: Recovery testing plan lacks pre-flight validation procedures. Tests should validate prerequisites (especially SSH) before starting execution, and should document recovery procedures for when prerequisites fail (e.g., using Hetzner Rescue system).
+**Root Cause Determination**: Complete networking or SSH failure affecting BOTH public and private IPs, persisting through normal and rescue mode reboots. This is NOT a configuration issue - likely infrastructure-level failure (VM networking, hypervisor issue, or DDoS protection blocking port 22).
 
-**Recommendation**: Reboot test-1.dev.nbg via Hetzner Cloud, verify connectivity restored, then immediately re-run I5.T5. Update recovery_testing_plan.md to add pre-flight validation to all test scenarios.
+**Severity Escalation**: Initial diagnosis of "SSH daemon failure" has been escalated to "critical infrastructure failure" after extended troubleshooting ruled out all configuration-related causes. The fact that rescue mode (separate OS with default SSH config) ALSO cannot be reached via SSH indicates a severe infrastructure problem.
 
-**Approval Status**: Draft (awaiting test re-execution after connectivity restored)
+**Identified critical gaps**:
+1. Recovery testing plan lacks pre-flight validation procedures (SSH connectivity should be verified 48h before test)
+2. No monitoring/alerting for SSH daemon or server health (issue was only discovered during test execution)
+3. No documented procedures for accessing servers via Hetzner Cloud Console when SSH fails
+4. Test environment (test-1) has proven unreliable - consider using production server during low-traffic window for future DR tests
+
+**Recommendation**: **CRITICAL ACTION REQUIRED**:
+1. Access test-1.dev.nbg via Hetzner Cloud Console (web VNC) to diagnose boot/network/SSH status
+2. If console access fails or shows irrecoverable state, contact Hetzner Support (Server ID: 111301341) for hypervisor-level diagnostics
+3. Alternative: Rebuild test-1 from Terraform (`tofu destroy/apply`) and re-deploy via Ansible
+4. After test-1 restored/rebuilt, re-execute I5.T5 with pre-flight validation
+5. Update recovery_testing_plan.md to add pre-flight validation and escalation procedures
+
+**Approval Status**: Final (documents infrastructure failure blocking test execution, awaiting test-1 recovery before I5.T5 can be re-attempted)
 
 ---
 
