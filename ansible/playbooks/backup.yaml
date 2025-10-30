@@ -1,0 +1,39 @@
+---
+# Backup playbook for production mail server and test environments
+# Usage:
+#   Test environment: ansible-playbook playbooks/backup.yaml --limit test-1.dev.nbg --check
+#   Dry-run (mail):   ansible-playbook playbooks/backup.yaml --limit mail --check
+#   Deploy (mail):    ansible-playbook playbooks/backup.yaml --limit mail
+
+- name: Configure automated backups with restic
+  hosts: mail:dev
+  become: true
+  gather_facts: true
+
+  tasks:
+    - name: Load SOPS encrypted backup secrets
+      community.sops.load_vars:
+        file: ../../secrets/backup.yaml
+      delegate_to: localhost
+      no_log: true
+
+    - name: Set storagebox credentials from secrets
+      ansible.builtin.set_fact:
+        storagebox_host: "{{ backup.storage_box_host }}"
+        storagebox_username: "{{ backup.storage_box_user }}"
+        storagebox_password: "{{ backup.storage_box_password }}"
+        storagebox_mount_point: "{{ backup.storage_box_mount_point }}"
+      no_log: true
+
+    - name: Set restic password from secrets (repository path from group_vars)
+      ansible.builtin.set_fact:
+        restic_repository_password: "{{ backup.restic_repository_password }}"
+      no_log: true
+
+    - name: Mount Hetzner Storage Box
+      ansible.builtin.include_role:
+        name: storagebox
+
+    - name: Configure restic backup
+      ansible.builtin.include_role:
+        name: backup

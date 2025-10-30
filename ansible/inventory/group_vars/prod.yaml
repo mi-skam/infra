@@ -7,3 +7,34 @@ ssh_permit_root_login: "prohibit-password"
 # Production-specific packages
 additional_packages:
   - fail2ban
+
+# Backup configuration
+# Note: Storage Box credentials and restic password loaded from secrets/backup.yaml in playbook
+# The restic_repository_path is defined here (not in secrets) to allow per-environment customization
+
+# Restic backup settings
+restic_repository_path: /mnt/storagebox/restic-mail-backups
+
+# Backup schedule (daily at 2am)
+backup_schedule_time: "02:00"
+backup_schedule_randomized_delay: "30m"
+
+# Retention policy
+backup_retention_daily: 7
+backup_retention_weekly: 4
+backup_retention_monthly: 12
+backup_retention_yearly: 0
+
+# Mail server backup paths
+backup_paths:
+  - /var/lib/docker/volumes/mailcowdockerized_vmail-vol-1/_data
+  - /var/lib/docker/volumes/mailcowdockerized_mysql-vol-1/_data
+  - /opt/mailcow-dockerized/data
+
+# Backup exclusions
+backup_exclude_patterns:
+  - "*.tmp"
+  - "*.cache"
+  - "*.log"
+  - "/tmp/*"
+  - "/var/tmp/*"

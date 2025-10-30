@@ -1,10 +1,37 @@
 # Development environment variables
 ---
-# More relaxed settings for dev
-ssh_password_authentication: false
+# Less strict settings for development
+ssh_password_authentication: true
 ssh_permit_root_login: "yes"
 
-# Development tools
-additional_packages:
-  - strace
-  - tcpdump
+# Backup configuration (for testing)
+# Storage Box mount settings (loaded from secrets/backup.yaml)
+storagebox_host: "{{ backup.storage_box_host }}"
+storagebox_username: "{{ backup.storage_box_user }}"
+storagebox_password: "{{ backup.storage_box_password }}"
+storagebox_mount_point: "{{ backup.storage_box_mount_point }}"
+
+# Restic backup settings (use different repo path for dev)
+restic_repository_path: "/mnt/storagebox/restic-dev-backups"
+restic_repository_password: "{{ backup.restic_repository_password }}"
+
+# Backup schedule (for testing, run at 3am)
+backup_schedule_time: "03:00"
+backup_schedule_randomized_delay: "15m"
+
+# Retention policy (shorter retention for dev)
+backup_retention_daily: 3
+backup_retention_weekly: 2
+backup_retention_monthly: 1
+backup_retention_yearly: 0
+
+# Test backup paths (simple directories for dev testing)
+backup_paths:
+  - /etc/hostname
+  - /etc/hosts
+  - /var/log/syslog
+
+# Backup exclusions
+backup_exclude_patterns:
+  - "*.tmp"
+  - "*.cache"
