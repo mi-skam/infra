@@ -37,6 +37,38 @@ export RESTIC_PASSWORD="your-restic-password-here"
 export RESTIC_REPOSITORY="/mnt/storagebox/restic-mail-backups"
 ```
 
+## Immediate Verification After Backup Creation
+
+**Always verify snapshot immediately after backup completes** (before connection is lost):
+
+```bash
+# Set restic environment
+export RESTIC_REPOSITORY="/mnt/storagebox/restic-dev-backups"
+export RESTIC_PASSWORD="..." # From /usr/local/bin/restic_backup.sh
+
+# Verify latest snapshot was created
+restic snapshots --last 1
+
+# Check snapshot details
+restic stats latest
+
+# List files in latest snapshot (verify expected files are present)
+restic ls latest | head -20
+
+# Expected output: snapshot ID, timestamp, file count, total size
+```
+
+**Rationale**: Previous test (DRT-2025-10-30-003) created backup successfully but experienced SSH timeout before verification. Immediate verification captures snapshot details while connection is stable.
+
+**What to verify**:
+- ✅ Snapshot ID generated (confirms backup completed)
+- ✅ Timestamp matches current time (confirms backup is recent, not stale)
+- ✅ File count matches expected (e.g., 3 files for test data: hostname, hosts, syslog)
+- ✅ Total size is reasonable (not 0 bytes - would indicate backup failure)
+- ✅ File paths are correct (backed up intended directories)
+
+---
+
 ## Verification Procedures
 
 ### 1. List All Backup Snapshots

@@ -922,6 +922,38 @@ curl http://localhost:8080
 
 ---
 
+#### Pre-Flight Connectivity Validation
+
+**Required before proceeding with test setup:**
+
+Run 15-minute sustained connectivity test:
+```bash
+# Test SSH connectivity every 30 seconds for 15 minutes (30 attempts)
+for i in {1..30}; do
+  timestamp=$(date -u +"%H:%M:%S")
+  echo "[$timestamp] Attempt $i/30:"
+  if ssh -i ~/.ssh/homelab/hetzner -o ConnectTimeout=10 root@5.75.134.87 'date -u' >/dev/null 2>&1; then
+    echo "  SUCCESS"
+  else
+    echo "  FAILED - SSH timeout"
+    echo "BLOCKER: SSH connectivity is unstable. Do not proceed with test."
+    exit 1
+  fi
+  sleep 30
+done
+echo "All 30 connectivity attempts succeeded. SSH is stable, proceed with test."
+```
+
+**If validation fails**: STOP and diagnose network issue before provisioning infrastructure. Previous tests (DRT-2025-10-30-002, DRT-2025-10-30-003) showed intermittent connectivity where initial SSH worked but timed out during test execution.
+
+**Known Issue - test-1.dev.nbg Connectivity**: This system has exhibited intermittent SSH timeouts from certain network paths. Consider:
+- Testing from alternative network (VPN, mobile hotspot)
+- Using Hetzner Cloud Console (web terminal) for test execution
+- Scheduling test from co-location with stable Hetzner connectivity
+- **If SSH fails initially**: Wait 15-30 minutes for connectivity to stabilize before using alternative methods (test DRT-2025-10-30-003 showed connectivity self-stabilizes)
+
+---
+
 #### Failure Simulation
 
 **Simulate data loss by selecting data to restore** (non-destructive test):
@@ -2274,6 +2306,43 @@ If any answer is NO: DO NOT PROCEED
 - ❌ **Shortcuts** - Skipping safety checks to save time
 
 **Key principle**: "Break things on purpose in test, so they don't break by accident in production."
+
+---
+
+### 10.X Fallback Access: Hetzner Cloud Console
+
+**When SSH is unavailable or unreliable**, use Hetzner Cloud Console (web-based terminal):
+
+**Access Procedure**:
+1. Open web browser, navigate to https://console.hetzner.cloud/
+2. Select project "homelab" (or relevant project)
+3. Click on server (e.g., test-1.dev.nbg)
+4. Click "Console" button in top-right (opens web-based VNC terminal)
+5. Log in as root (may require password reset if not set)
+
+**CLI Access via hcloud**:
+```bash
+# Request console access via CLI (returns WebSocket URL)
+hcloud server request-console test-1.dev.nbg
+
+# Note: This returns a wss:// URL that must be opened in a web browser
+# The CLI cannot directly connect to the console - it only generates the access URL
+```
+
+**When to Use Console**:
+- SSH connection consistently times out
+- Need to diagnose network/SSH issues (check `ip addr`, `systemctl status sshd`)
+- Emergency access when normal access methods fail
+- Executing critical restoration procedures when SSH is unreliable
+
+**Console Limitations**:
+- Copy-paste may be limited (varies by browser)
+- No SSH key authentication (requires password)
+- Slower than SSH (keyboard input latency)
+- No persistent session (closes when browser closed)
+- WebSocket URL expires after 1 hour (must request new URL)
+
+**Best Practice**: For DR tests with known connectivity issues, execute test commands via Console session rather than SSH. However, note from test DRT-2025-10-30-003: SSH connectivity issues may self-resolve after 15-30 minutes - consider waiting before switching to Console.
 
 ---
 

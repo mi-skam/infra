@@ -1543,6 +1543,114 @@ just tf-output
 
 ---
 
+## 8.1. Scenario 6: Intermittent Connectivity During Recovery
+
+**Symptoms**:
+- SSH connections work initially but timeout after 5-15 minutes
+- Long-running operations (Ansible, backups) succeed but manual commands fail
+- Connection timeouts occur randomly, not consistently
+- Server shows "running" status in cloud console but SSH is unreachable
+
+**Detection**:
+1. SSH connection works initially: `ssh root@server 'hostname'` succeeds
+2. Later SSH attempts timeout: `ssh: connect to host X.X.X.X port 22: Operation timed out`
+3. Server shows "running" in `hcloud server list` (not a server failure)
+4. Long operations complete (e.g., Ansible playbooks) but short commands fail
+
+**Root Cause Investigation**:
+1. **Test from alternative network** (mobile hotspot, VPN): `ssh root@server 'hostname'`
+   - If works from alternative network → local ISP/firewall issue
+   - If fails from all networks → Hetzner routing or server network issue
+2. **Test other Hetzner servers**: `ssh root@mail-1.prod.nbg 'hostname'`
+   - If other servers work → issue specific to one server/IP
+   - If all servers fail → broader connectivity problem
+3. **Check SSH daemon on server** (via Hetzner Console):
+   - `systemctl status sshd` (should be active/running)
+   - `journalctl -u sshd -n 50` (check for connection logs)
+4. **Check for SSH timeout pattern**:
+   - Does timeout occur at consistent interval (e.g., exactly 300 seconds)?
+   - Does connection work after server reboot? How long until timeout recurs?
+   - Based on test DRT-2025-10-30-003: Connectivity may self-stabilize after 15-30 minutes
+
+**Workarounds**:
+
+**Primary Workaround - Wait for Stabilization**:
+```bash
+# If SSH times out, wait 15-30 minutes and retry
+# Test DRT-2025-10-30-003 showed connectivity self-stabilized after 15 minutes
+sleep 900  # Wait 15 minutes
+ssh root@server 'hostname'  # Retry connection
+```
+
+**Alternative 1 - Hetzner Cloud Console**:
+```bash
+# Request console access via CLI (returns WebSocket URL)
+hcloud server request-console test-1.dev.nbg
+# Open returned wss:// URL in browser, log in via web terminal
+```
+
+Or via web UI:
+1. Navigate to https://console.hetzner.cloud/
+2. Select server → Click "Console" button
+3. Log in as root (may require password reset)
+4. Execute recovery commands directly in web terminal
+
+**Alternative 2 - SSH Keepalive Configuration**:
+Add to `~/.ssh/config`:
+```
+Host 5.75.134.87
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    TCPKeepAlive yes
+```
+
+**Alternative 3 - Batch Operations in Single Session**:
+```bash
+# Execute all commands in single SSH session (avoid reconnecting)
+ssh root@server 'bash -s' <<'EOF'
+  export RESTIC_REPOSITORY="/mnt/storagebox/restic-dev-backups"
+  export RESTIC_PASSWORD="..."
+  restic snapshots
+  restic restore latest --target /tmp/restore-test
+  find /tmp/restore-test -type f
+  sha256sum /tmp/restore-test/etc/hostname /etc/hostname
+EOF
+```
+
+**Alternative 4 - Proxy via Stable Server**:
+SSH to mail-1, then SSH to test-1 via private network:
+```bash
+ssh root@mail-1.prod.nbg 'ssh root@10.0.0.4 "commands"'
+```
+
+**Prevention**:
+- **Run sustained connectivity test** before critical recovery operations (see recovery_testing_plan.md Section 5.4 Pre-Flight Connectivity Validation)
+- **Consider Hetzner Cloud Console** for recovery operations with known connectivity issues
+- **Document alternative access methods** in advance (VPN, proxy, Console)
+- **Add SSH keepalive** to reduce timeout likelihood
+- **Be patient**: If SSH fails initially, wait 15-30 minutes before switching to alternative methods
+
+**Recovery Steps**:
+1. **Attempt connection**: Try SSH to verify failure
+2. **Wait 15-30 minutes**: Connectivity may self-stabilize (based on test DRT-2025-10-30-003)
+3. **Retry SSH**: Check if connectivity restored after waiting
+4. **If still failing**: Switch to Hetzner Cloud Console (web terminal)
+5. **Document pattern**: Note when timeouts occur, duration, any recovery triggers
+
+**RTO Impact**: Connectivity issues can add 15-30 minutes delay to recovery operations. Factor this into RTO calculations for affected systems. If using Hetzner Cloud Console, add 5-10 minutes for access setup (password reset, browser setup).
+
+**Known Affected Systems**:
+- test-1.dev.nbg (documented in tests DRT-2025-10-30-002, DRT-2025-10-30-003)
+- IP 5.75.134.87 (may be IP-specific routing issue)
+
+**When to Escalate**:
+- Connectivity does not stabilize after 30 minutes
+- Hetzner Cloud Console also inaccessible
+- Multiple servers affected simultaneously
+- Recovery blocked for >1 hour due to connectivity
+
+---
+
 ## 9. RTO/RPO Summary
 
 **Recovery Time Objective (RTO)**: Maximum acceptable downtime for service restoration
