@@ -156,6 +156,18 @@
         }:
         {
           devShells.default = import ./devshell.nix { inherit pkgs; };
+
+          # NixOS VM tests (only available on x86_64-linux)
+          checks = pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+            xmsi-test = import ./tests/nixos/xmsi-test.nix {
+              inherit pkgs;
+              inherit inputs;
+            };
+            srv-01-test = import ./tests/nixos/srv-01-test.nix {
+              inherit pkgs;
+              inherit inputs;
+            };
+          };
         };
     };
 }

@@ -422,6 +422,71 @@ _validate-ansible-inventory:
     home-manager switch --flake .#{{user}}
 
 # ============================================================================
+# Testing Recipes
+# ============================================================================
+
+# Run NixOS VM tests for xmsi and srv-01 configurations
+#
+# Runs nixosTest-based integration tests for NixOS system configurations.
+# Tests verify critical functionality including:
+# - System boots to multi-user target
+# - Users exist with correct groups (mi-skam, plumps)
+# - SSH service is running and accessible
+# - SOPS secrets decrypt successfully
+# - Server config has no GUI (srv-01 negative test)
+#
+# Tests run in isolated QEMU VMs and take approximately 5 minutes total.
+# Each test is self-contained and runs independently.
+#
+# The tests are only available on x86_64-linux systems since xmsi and srv-01
+# are both x86_64-linux configurations.
+#
+# Returns exit code 0 if all tests pass, non-zero on any test failure.
+# Test failures include detailed error messages showing which checks failed.
+#
+# Example usage:
+#   just test-nixos                    # Run all NixOS VM tests
+#
+# NOTE: This requires significant system resources (QEMU VMs). Tests are
+# automatically skipped on non-x86_64-linux systems.
+@test-nixos:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "════════════════════════════════════════"
+    echo "  NixOS VM Testing"
+    echo "════════════════════════════════════════"
+    echo ""
+
+    # Check if we're on x86_64-linux (tests only available on this platform)
+    SYSTEM=$(nix eval --impure --raw --expr 'builtins.currentSystem')
+    if [ "$SYSTEM" != "x86_64-linux" ]; then
+        echo "⚠️  Skipping NixOS VM tests (only available on x86_64-linux)"
+        echo "Current system: $SYSTEM"
+        exit 0
+    fi
+
+    echo "→ Running xmsi configuration test..."
+    if ! nix build .#checks.x86_64-linux.xmsi-test --print-build-logs; then
+        echo "❌ xmsi test failed" >&2
+        exit 1
+    fi
+    echo "✓ xmsi test passed"
+    echo ""
+
+    echo "→ Running srv-01 configuration test..."
+    if ! nix build .#checks.x86_64-linux.srv-01-test --print-build-logs; then
+        echo "❌ srv-01 test failed" >&2
+        exit 1
+    fi
+    echo "✓ srv-01 test passed"
+    echo ""
+
+    echo "════════════════════════════════════════"
+    echo "✅ All NixOS VM tests passed"
+    echo "════════════════════════════════════════"
+
+# ============================================================================
 # Secrets Management (Private Helpers)
 # ============================================================================
 
