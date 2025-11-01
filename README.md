@@ -23,6 +23,7 @@ The development shell provides:
 - **Automation**: `just` task runner with common operations
 - **Secrets**: `sops`, `age` for encrypted secrets management
 - **Utilities**: `git`, `direnv`, `jq`, and other development tools
+- **CI/CD**: Automated validation pipeline via GitHub Actions (syntax checks, tests)
 
 ## Quick Start
 
