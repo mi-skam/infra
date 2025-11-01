@@ -1,0 +1,134 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+' Monitoring Architecture Diagram - Observability Infrastructure
+' This diagram shows the complete monitoring stack deployment including:
+' - Monitoring stack (Prometheus, Grafana, Loki, Alertmanager) on srv-01
+' - Monitored systems (xbook, xmsi, srv-01, mail-1, syncthing-1, test-1)
+' - Monitoring agents (node_exporter, Promtail) on all systems
+' - Data flows (metrics scraping, log shipping, alert routing)
+' - Network connectivity (private network for VPS, localhost for srv-01)
+
+LAYOUT_WITH_LEGEND()
+
+title Monitoring Architecture - Observability Stack Deployment
+
+Person(operator, "Infrastructure Operator", "Accesses Grafana dashboards for monitoring")
+
+' Monitoring Stack on srv-01
+Deployment_Node(srv01, "srv-01", "x86_64 NixOS Local Server\nMonitoring Stack Host") {
+
+  System_Boundary(monitoring_stack, "Monitoring Stack") {
+    Container(prometheus, "Prometheus", "Metrics Database v2.x", "Stores and queries time-series metrics\nPort: 9090\nRetention: 30 days")
+    Container(grafana, "Grafana", "Visualization Platform v10.x", "Dashboards and visualization\nPort: 3000\nAccess: operator workstation only")
+    Container(loki, "Loki", "Log Aggregation v2.9.x", "Stores and queries logs\nPort: 3100\nRetention: 30 days hot / 90 days cold")
+    Container(alertmanager, "Alertmanager", "Alert Router v0.27.x", "Routes alerts to email/Matrix\nPort: 9093\nHistory: 90 days")
+  }
+
+  System_Boundary(srv01_agents, "srv-01 Monitoring Agents") {
+    Container(srv01_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Exports system metrics\nPort: 9100")
+    Container(srv01_promtail, "Promtail", "Log Shipper v2.9.3", "Ships logs to Loki\nPort: 9080")
+  }
+}
+
+' Local Development Systems
+Deployment_Node(xbook_machine, "xbook", "macOS ARM64 Darwin\nIP: localhost") {
+  System_Boundary(xbook_agents, "Monitoring Agents") {
+    Container(xbook_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Port: 9100")
+    Container(xbook_promtail, "Promtail", "Log Shipper v2.9.3", "Port: 9080")
+  }
+}
+
+Deployment_Node(xmsi_machine, "xmsi", "x86_64 NixOS Desktop\nIP: localhost") {
+  System_Boundary(xmsi_agents, "Monitoring Agents") {
+    Container(xmsi_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Port: 9100")
+    Container(xmsi_promtail, "Promtail", "Log Shipper v2.9.3", "Port: 9080")
+  }
+}
+
+' Hetzner Cloud VPS - Production Environment (Nuremberg)
+Deployment_Node(hetzner_nbg_prod, "Hetzner NBG1 (Production)", "Private Network: 10.0.0.0/16") {
+
+  Deployment_Node(mail_node, "mail-1.prod.nbg", "Debian 12, CAX21, ARM64\nPrivate IP: 10.0.0.10") {
+    System_Boundary(mail_agents, "Monitoring Agents") {
+      Container(mail_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Port: 9100")
+      Container(mail_promtail, "Promtail", "Log Shipper v2.9.3", "Port: 9080\nLogs: /var/log/mail.log, syslog, auth.log")
+    }
+  }
+}
+
+' Hetzner Cloud VPS - Production Environment (Helsinki)
+Deployment_Node(hetzner_hel_prod, "Hetzner HEL1 (Production)", "Private Network: 10.0.0.0/16") {
+
+  Deployment_Node(syncthing_node, "syncthing-1.prod.hel", "Rocky Linux 9, CAX11, ARM64\nPrivate IP: 10.0.0.11") {
+    System_Boundary(syncthing_agents, "Monitoring Agents") {
+      Container(syncthing_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Port: 9100")
+      Container(syncthing_promtail, "Promtail", "Log Shipper v2.9.3", "Port: 9080\nLogs: systemd journal")
+    }
+  }
+}
+
+' Hetzner Cloud VPS - Development Environment (Nuremberg)
+Deployment_Node(hetzner_nbg_dev, "Hetzner NBG1 (Development)", "Private Network: 10.0.0.0/16") {
+
+  Deployment_Node(test_node, "test-1.dev.nbg", "Ubuntu 24.04, CAX11, ARM64\nPrivate IP: 10.0.0.20") {
+    System_Boundary(test_agents, "Monitoring Agents") {
+      Container(test_node_exporter, "node_exporter", "Metrics Exporter v1.8.2", "Port: 9100")
+      Container(test_promtail, "Promtail", "Log Shipper v2.9.3", "Port: 9080\nLogs: syslog, auth.log, kern.log")
+    }
+  }
+}
+
+' External Notification Systems
+System_Ext(email, "Email Server", "Alert notifications via SMTP")
+System_Ext(matrix, "Matrix Server", "Alert notifications via Matrix protocol (future)")
+
+' Operator Access to Grafana
+Rel(operator, grafana, "Views dashboards via", "HTTPS (port 3000)\nRestricted to operator workstation")
+
+' Metrics Flow: node_exporter → Prometheus
+Rel(prometheus, srv01_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://localhost:9100/metrics")
+Rel(prometheus, xbook_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://xbook:9100/metrics")
+Rel(prometheus, xmsi_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://xmsi:9100/metrics")
+Rel(prometheus, mail_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://10.0.0.10:9100/metrics")
+Rel(prometheus, syncthing_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://10.0.0.11:9100/metrics")
+Rel(prometheus, test_node_exporter, "Scrapes metrics every 15s", "HTTP GET http://10.0.0.20:9100/metrics")
+
+' Logs Flow: Promtail → Loki
+Rel(srv01_promtail, loki, "Ships logs", "HTTP POST http://localhost:3100/loki/api/v1/push")
+Rel(xbook_promtail, loki, "Ships logs", "HTTP POST http://srv-01:3100/loki/api/v1/push")
+Rel(xmsi_promtail, loki, "Ships logs", "HTTP POST http://srv-01:3100/loki/api/v1/push")
+Rel(mail_promtail, loki, "Ships logs", "HTTP POST http://srv-01:3100/loki/api/v1/push")
+Rel(syncthing_promtail, loki, "Ships logs", "HTTP POST http://srv-01:3100/loki/api/v1/push")
+Rel(test_promtail, loki, "Ships logs", "HTTP POST http://srv-01:3100/loki/api/v1/push")
+
+' Grafana Data Sources
+Rel(grafana, prometheus, "Queries metrics from", "HTTP GET http://localhost:9090/api/v1/query")
+Rel(grafana, loki, "Queries logs from", "HTTP GET http://localhost:3100/loki/api/v1/query")
+
+' Alert Flow: Prometheus → Alertmanager → Notifications
+Rel(prometheus, alertmanager, "Sends alerts", "HTTP POST http://localhost:9093/api/v2/alerts")
+Rel(alertmanager, email, "Routes critical alerts", "SMTP")
+Rel(alertmanager, matrix, "Routes alerts (future)", "Matrix HTTP API")
+
+' Local system Promtail log tailing
+Rel(srv01_promtail, srv01, "Tails logs", "File: /var/log/syslog, /var/log/auth.log")
+Rel(xbook_promtail, xbook_machine, "Tails logs", "File: /var/log/system.log")
+Rel(xmsi_promtail, xmsi_machine, "Tails logs", "File: /var/log/syslog")
+
+' VPS Promtail log tailing
+Rel(mail_promtail, mail_node, "Tails logs", "File: /var/log/mail.log, /var/log/syslog, /var/log/auth.log")
+Rel(syncthing_promtail, syncthing_node, "Tails logs", "systemd journal")
+Rel(test_promtail, test_node, "Tails logs", "File: /var/log/syslog, /var/log/auth.log, /var/log/kern.log")
+
+' Local system node_exporter metrics collection
+Rel(srv01_node_exporter, srv01, "Collects metrics", "CPU, memory, disk, network")
+Rel(xbook_node_exporter, xbook_machine, "Collects metrics", "CPU, memory, disk, network")
+Rel(xmsi_node_exporter, xmsi_machine, "Collects metrics", "CPU, memory, disk, network")
+
+' VPS node_exporter metrics collection
+Rel(mail_node_exporter, mail_node, "Collects metrics", "CPU, memory, disk, network, systemd services")
+Rel(syncthing_node_exporter, syncthing_node, "Collects metrics", "CPU, memory, disk, network, systemd services")
+Rel(test_node_exporter, test_node, "Collects metrics", "CPU, memory, disk, network, systemd services")
+
+@enduml
