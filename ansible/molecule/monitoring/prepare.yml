@@ -1,0 +1,31 @@
+---
+# Prepare test environment for monitoring role testing
+# Installs necessary tools for archive extraction (zstd, tar, gzip)
+- name: Prepare
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Install archive extraction tools (Debian/Ubuntu)
+      ansible.builtin.apt:
+        name:
+          - tar
+          - gzip
+          - bzip2
+          - xz-utils
+          - zstd
+          - unzip
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: Install archive extraction tools (Rocky Linux)
+      ansible.builtin.yum:
+        name:
+          - tar
+          - gzip
+          - bzip2
+          - xz
+          - zstd
+          - unzip
+        state: present
+      when: ansible_os_family == "RedHat"
