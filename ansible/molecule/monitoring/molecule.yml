@@ -9,6 +9,8 @@ platforms:
   - name: debian-12
     image: geerlingguy/docker-debian12-ansible
     pre_build_image: true
+    command: /lib/systemd/systemd
+    privileged: true
     tmpfs:
       - /run
       - /tmp
@@ -19,6 +21,8 @@ platforms:
   - name: ubuntu-2404
     image: geerlingguy/docker-ubuntu2404-ansible
     pre_build_image: true
+    command: /lib/systemd/systemd
+    privileged: true
     tmpfs:
       - /run
       - /tmp
@@ -29,6 +33,8 @@ platforms:
   - name: rockylinux-9
     image: geerlingguy/docker-rockylinux9-ansible
     pre_build_image: true
+    command: /usr/sbin/init
+    privileged: true
     tmpfs:
       - /run
       - /tmp

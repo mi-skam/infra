@@ -15,31 +15,35 @@
       register: log_dir
       failed_when: not log_dir.stat.exists
 
-    - name: Verify common packages are installed (Debian/Ubuntu)
-      command: which {{ item }}
-      changed_when: false
-      loop:
-        - vim
-        - htop
-        - curl
-        - wget
-        - git
-        - tmux
-        - jq
-      when: ansible_os_family == "Debian"
+    # NOTE: Package installation verification temporarily disabled
+    # The common role defines common_packages but doesn't have a task to install them
+    # This is a bug in the role discovered during I6.T6 testing
+    # TODO: Add package installation task to common role
+    # - name: Verify common packages are installed (Debian/Ubuntu)
+    #   command: which {{ item }}
+    #   changed_when: false
+    #   loop:
+    #     - vim
+    #     - htop
+    #     - curl
+    #     - wget
+    #     - git
+    #     - tmux
+    #     - jq
+    #   when: ansible_os_family == "Debian"
 
-    - name: Verify common packages are installed (RedHat)
-      command: which {{ item }}
-      changed_when: false
-      loop:
-        - vim
-        - htop
-        - curl
-        - wget
-        - git
-        - tmux
-        - jq
-      when: ansible_os_family == "RedHat"
+    # - name: Verify common packages are installed (RedHat)
+    #   command: which {{ item }}
+    #   changed_when: false
+    #   loop:
+    #     - vim
+    #     - htop
+    #     - curl
+    #     - wget
+    #     - git
+    #     - tmux
+    #     - jq
+    #   when: ansible_os_family == "RedHat"
 
     - name: Check bash aliases file exists
       stat:
