@@ -2,8 +2,9 @@
 {
   imports = [
     ./hardware-configuration.nix
-    
+
     ../../modules/nixos/server.nix
+    ../../modules/nixos/monitoring.nix
   ];
 
   networking = {
