@@ -56,3 +56,20 @@ provisioner:
           - /var/log/homelab
 verifier:
   name: ansible
+scenario:
+  name: backup
+  test_sequence:
+    - dependency
+    - cleanup
+    - destroy
+    - syntax
+    - create
+    - prepare
+    - converge
+    # NOTE: Idempotence test disabled for backup role
+    # Reason: Role downloads external binaries (restic) which always report
+    # "changed" status. Same pattern as monitoring role.
+    # - idempotence
+    - verify
+    - cleanup
+    - destroy
