@@ -1,0 +1,206 @@
+name: Infrastructure Validation
+
+# Trigger on pull requests and pushes to main branch
+on:
+  pull_request:
+    branches:
+      - '**'
+  push:
+    branches:
+      - main
+
+# Cancel in-progress runs for same PR/branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # Job 1: Validate Syntax (Fast Feedback)
+  # ============================================================================
+  validate-syntax:
+    name: Syntax Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Configure Nix caching (cachix)
+        uses: cachix/cachix-action@v15
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Validate Nix syntax (nix flake check)
+        run: nix flake check --print-build-logs
+
+      - name: Install OpenTofu
+        run: |
+          # Install via Nix devshell for consistency
+          nix develop --command tofu version
+
+      - name: Validate Terraform syntax (tofu validate)
+        run: |
+          nix develop --command bash -c "cd terraform && tofu init -backend=false && tofu validate"
+
+      - name: Validate Ansible syntax (ansible-playbook --syntax-check)
+        run: |
+          nix develop --command bash -c "
+            cd ansible
+            ansible-playbook playbooks/bootstrap.yaml --syntax-check
+            ansible-playbook playbooks/deploy.yaml --syntax-check
+            ansible-playbook playbooks/setup-storagebox.yaml --syntax-check
+            ansible-playbook playbooks/mailcow-backup.yaml --syntax-check
+          "
+
+  # ============================================================================
+  # Job 2: Validate Secrets (Optional - Requires Age Key)
+  # ============================================================================
+  validate-secrets:
+    name: Secrets Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # Skip if SOPS_AGE_KEY not configured (document limitation)
+    if: ${{ secrets.SOPS_AGE_KEY != '' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Setup SOPS age key
+        run: |
+          mkdir -p /tmp/sops-keys
+          echo "${{ secrets.SOPS_AGE_KEY }}" > /tmp/sops-keys/keys.txt
+          chmod 600 /tmp/sops-keys/keys.txt
+
+      - name: Validate secrets
+        env:
+          SOPS_AGE_KEY_FILE: /tmp/sops-keys/keys.txt
+        run: |
+          nix develop --command scripts/validate-secrets.sh
+
+  # ============================================================================
+  # Job 3: Test NixOS VM Configurations
+  # ============================================================================
+  test-nixos:
+    name: NixOS VM Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: validate-syntax
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Configure Nix caching (cachix)
+        uses: cachix/cachix-action@v15
+        with:
+          name: nix-community
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          skipPush: true
+
+      - name: Setup KVM (for VM tests)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run NixOS VM tests
+        run: |
+          nix develop --command just test-nixos
+
+  # ============================================================================
+  # Job 4: Test Terraform Validation
+  # ============================================================================
+  test-terraform:
+    name: Terraform Validation Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: validate-syntax
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Run Terraform validation tests
+        run: |
+          nix develop --command just test-terraform
+
+  # ============================================================================
+  # Job 5: Test Ansible Molecule
+  # ============================================================================
+  test-ansible:
+    name: Ansible Molecule Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: validate-syntax
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v27
+        with:
+          nix_path: nixpkgs=channel:nixos-24.11
+
+      - name: Setup Python venv for Molecule
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install molecule molecule-docker ansible-core
+
+      - name: Run Ansible Molecule tests
+        run: |
+          nix develop --command just test-ansible
+
+  # ============================================================================
+  # Job 6: Summary (Report Results)
+  # ============================================================================
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [validate-syntax, test-nixos, test-terraform, test-ansible]
+    if: always()
+    steps:
+      - name: Check pipeline status
+        run: |
+          echo "════════════════════════════════════════"
+          echo "  CI/CD Pipeline Summary"
+          echo "════════════════════════════════════════"
+          echo ""
+          echo "Syntax Validation: ${{ needs.validate-syntax.result }}"
+          echo "NixOS Tests:       ${{ needs.test-nixos.result }}"
+          echo "Terraform Tests:   ${{ needs.test-terraform.result }}"
+          echo "Ansible Tests:     ${{ needs.test-ansible.result }}"
+          echo ""
+
+          if [[ "${{ needs.validate-syntax.result }}" != "success" ]] || \
+             [[ "${{ needs.test-nixos.result }}" != "success" ]] || \
+             [[ "${{ needs.test-terraform.result }}" != "success" ]] || \
+             [[ "${{ needs.test-ansible.result }}" != "success" ]]; then
+            echo "❌ Pipeline FAILED"
+            echo "════════════════════════════════════════"
+            exit 1
+          else
+            echo "✅ Pipeline PASSED"
+            echo "════════════════════════════════════════"
+          fi
