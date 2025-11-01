@@ -42,7 +42,24 @@ backup_exclude_patterns:
   - "*.cache"
 
 # Monitoring configuration
-# NOTE: Requires VPN (Tailscale/WireGuard) for connectivity between test-1 and srv-01
+# CRITICAL: srv-01 is NOT on Hetzner private network and requires VPN for connectivity
+#
+# Current Status:
+# - node_exporter: ✅ Deployed and functional on test-1 (serving metrics at localhost:9100)
+# - Promtail: ⚠️ Deployed but CANNOT connect to srv-01 (DNS resolution fails)
+#
+# Network Connectivity Issue:
+# - srv-01 (local NixOS server) is not on Hetzner private network (10.0.0.0/16)
+# - test-1.dev.nbg cannot resolve hostname "srv-01" (lookup fails on 127.0.0.53:53)
+# - Promtail error: "dial tcp: lookup srv-01 on 127.0.0.53:53: server misbehaving"
+#
+# Required Action:
+# 1. Deploy Tailscale or WireGuard VPN to create mesh network between srv-01 and Hetzner VPS
+# 2. Update loki_url below with srv-01's Tailscale/VPN IP (e.g., "http://100.64.x.x:3100")
+# 3. Re-run monitoring playbook after VPN is established:
+#    cd ansible && ansible-playbook playbooks/monitoring.yaml --limit test-1.dev.nbg
+#
+# TODO: Replace hostname with Tailscale IP after VPN deployment
 loki_url: "http://srv-01:3100"
 node_exporter_port: 9100
 promtail_port: 9080

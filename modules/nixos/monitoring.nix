@@ -126,7 +126,7 @@
       {
         job_name = "test-1";
         static_configs = [{
-          targets = [ "10.0.0.20:9100" ];
+          targets = [ "10.0.0.4:9100" ];  # Updated from 10.0.0.20 to match actual Hetzner private IP
           labels = {
             environment = "dev";
             platform = "ubuntu";

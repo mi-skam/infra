@@ -26,12 +26,26 @@
     mode: '0644'
   tags: [monitoring, install, node_exporter]
 
+- name: Check if node_exporter tarball exists
+  ansible.builtin.stat:
+    path: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
+  register: node_exporter_tarball_stat
+  tags: [monitoring, install, node_exporter]
+
 - name: Extract node_exporter binary
   ansible.builtin.unarchive:
     src: "/tmp/node_exporter-{{ node_exporter_version }}.tar.gz"
     dest: /tmp
     remote_src: true
     creates: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}/node_exporter"
+  when: not ansible_check_mode or node_exporter_tarball_stat.stat.exists
+  register: node_exporter_extract
+  tags: [monitoring, install, node_exporter]
+
+- name: Check if node_exporter binary exists
+  ansible.builtin.stat:
+    path: "/tmp/node_exporter-{{ node_exporter_version }}.linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}/node_exporter"
+  register: node_exporter_binary_stat
   tags: [monitoring, install, node_exporter]
 
 - name: Install node_exporter binary
@@ -42,6 +56,7 @@
     owner: "{{ node_exporter_user }}"
     group: "{{ node_exporter_group }}"
     remote_src: true
+  when: not ansible_check_mode or node_exporter_binary_stat.stat.exists
   notify: Restart node_exporter
   tags: [monitoring, install, node_exporter]
 
@@ -137,12 +152,26 @@
     mode: '0644'
   tags: [monitoring, install, promtail]
 
+- name: Check if promtail zip exists
+  ansible.builtin.stat:
+    path: "/tmp/promtail-{{ promtail_version }}.zip"
+  register: promtail_zip_stat
+  tags: [monitoring, install, promtail]
+
 - name: Extract promtail binary
   ansible.builtin.unarchive:
     src: "/tmp/promtail-{{ promtail_version }}.zip"
     dest: /tmp
     remote_src: true
     creates: "/tmp/promtail-linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+  when: not ansible_check_mode or promtail_zip_stat.stat.exists
+  register: promtail_extract
+  tags: [monitoring, install, promtail]
+
+- name: Check if promtail binary exists
+  ansible.builtin.stat:
+    path: "/tmp/promtail-linux-{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+  register: promtail_binary_stat
   tags: [monitoring, install, promtail]
 
 - name: Install promtail binary
@@ -153,6 +182,7 @@
     owner: "{{ promtail_user }}"
     group: "{{ promtail_group }}"
     remote_src: true
+  when: not ansible_check_mode or promtail_binary_stat.stat.exists
   notify: Restart promtail
   tags: [monitoring, install, promtail]
 
