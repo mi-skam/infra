@@ -16,8 +16,9 @@
 6. [Test Environments](#6-test-environments)
 7. [Test Data Management](#7-test-data-management)
 8. [Coverage Goals and Prioritization](#8-coverage-goals-and-prioritization)
-9. [Continuous Testing Integration](#9-continuous-testing-integration)
-10. [Appendix: Quick Reference](#10-appendix-quick-reference)
+9. [Workflow Integration](#9-workflow-integration)
+10. [Continuous Testing Integration](#10-continuous-testing-integration)
+11. [Appendix: Quick Reference](#11-appendix-quick-reference)
 
 ---
 
@@ -1819,11 +1820,499 @@ echo "Ansible Role Coverage: $COVERAGE%"
 
 ---
 
-## 9. Continuous Testing Integration
+## 9. Workflow Integration
 
-### 9.1 CI/CD Pipeline Architecture
+### 9.1 When to Run Tests
 
-**Pipeline Stages:**
+Infrastructure testing is integrated into the development and deployment workflow at multiple stages to catch errors early and ensure safe deployments.
+
+#### Local Development (Every Code Change)
+
+**When:** Making changes to Nix modules, Terraform configurations, or Ansible roles
+**Tests to Run:** Syntax validation (fast feedback)
+**Execution Time:** < 30 seconds
+**Command:**
+```bash
+# Quick syntax check before committing
+nix flake check                                    # Nix configurations
+cd terraform && tofu validate                       # Terraform syntax
+cd ansible && ansible-playbook playbooks/*.yaml --syntax-check  # Ansible syntax
+```
+
+**Why:** Catch syntax errors immediately before they propagate to other developers or break builds.
+
+#### Pre-Commit (Before Staging Changes)
+
+**When:** Before running `git add` and `git commit`
+**Tests to Run:** Syntax validation + basic build validation
+**Execution Time:** 1-2 minutes
+**Command:**
+```bash
+# Comprehensive pre-commit check
+nix flake check
+nix build '.#nixosConfigurations.xmsi.config.system.build.toplevel' --dry-run
+cd terraform && tofu validate && tofu plan -backend=false
+cd ansible && ansible-lint roles/ playbooks/
+```
+
+**Why:** Ensure changes build correctly before committing. Prevents broken commits from entering git history.
+
+#### Pre-Deployment (Before Any Production Change)
+
+**When:** Before deploying to production systems
+**Tests to Run:** Complete validation (secrets + all tests)
+**Execution Time:** ~15 minutes
+**Command:**
+```bash
+# Master validation command
+just validate-all
+
+# Or run components separately
+just validate-secrets  # ~2 seconds
+just test-all         # ~15 minutes
+```
+
+**Why:** Final safety gate before production deployment. Validates both secrets and infrastructure configurations are correct.
+
+#### CI/CD Pipeline (Automated)
+
+**When:** On every pull request and merge to main
+**Tests to Run:** Full test suite + deployment validation
+**Execution Time:** 15-20 minutes
+**Triggers:**
+- Pull request opened/updated
+- Commit pushed to main branch
+- Scheduled nightly builds
+
+**Why:** Automated validation ensures all changes meet quality standards before merge. Catches issues that might have been missed locally.
+
+### 9.2 How to Run Tests
+
+#### Individual Test Suites
+
+**NixOS VM Tests:**
+```bash
+just test-nixos
+
+# What it does:
+# - Checks system architecture (skips on non-x86_64-linux)
+# - Runs xmsi configuration test (desktop)
+# - Runs srv-01 configuration test (server)
+# - Verifies boot, users, secrets, services
+
+# Expected output:
+# ════════════════════════════════════════
+#   NixOS VM Testing
+# ════════════════════════════════════════
+# → Running xmsi configuration test...
+# ✓ xmsi test passed
+# → Running srv-01 configuration test...
+# ✓ srv-01 test passed
+# ════════════════════════════════════════
+# ✅ All NixOS VM tests passed
+# ════════════════════════════════════════
+```
+
+**Terraform Validation Tests:**
+```bash
+just test-terraform
+
+# What it does:
+# - Runs terraform/run-tests.sh validation suite
+# - Validates HCL syntax (tofu validate)
+# - Checks plan generation (tofu plan -backend=false)
+# - Validates import script syntax
+# - Verifies required outputs are defined
+
+# Expected output:
+# ════════════════════════════════════════
+#   Terraform Validation Testing
+# ════════════════════════════════════════
+# → Running validation tests...
+# ✓ Syntax validation passed
+# ✓ Plan validation passed
+# ✓ Import script validation passed
+# ✓ Output validation passed
+# ════════════════════════════════════════
+# ✅ All Terraform tests passed
+# ════════════════════════════════════════
+```
+
+**Ansible Molecule Tests:**
+```bash
+just test-ansible
+
+# What it does:
+# - Checks Docker is running
+# - Runs Molecule tests for common role
+# - Runs Molecule tests for monitoring role
+# - Runs Molecule tests for backup role
+# - Verifies idempotency (second run has changed=0)
+
+# Expected output:
+# ════════════════════════════════════════
+#   Ansible Molecule Testing
+# ════════════════════════════════════════
+# → Testing common role...
+# ✓ common role tests passed
+# → Testing monitoring role...
+# ✓ monitoring role tests passed
+# → Testing backup role...
+# ✓ backup role tests passed
+# ════════════════════════════════════════
+# ✅ All Ansible Molecule tests passed
+# ════════════════════════════════════════
+```
+
+#### Master Test Command
+
+**Run All Tests:**
+```bash
+just test-all
+
+# What it does:
+# - Runs test-nixos (NixOS VM tests)
+# - Runs test-terraform (Terraform validation)
+# - Runs test-ansible (Ansible Molecule tests)
+# - Provides comprehensive test summary
+# - Exits on first failure (fail-fast)
+
+# Expected output:
+# ════════════════════════════════════════
+#   Infrastructure Test Suite
+# ════════════════════════════════════════
+# Running all infrastructure tests...
+#
+# → Running NixOS tests...
+# [NixOS test output]
+# ✓ NixOS tests passed
+#
+# → Running Terraform tests...
+# [Terraform test output]
+# ✓ Terraform tests passed
+#
+# → Running Ansible tests...
+# [Ansible test output]
+# ✓ Ansible tests passed
+#
+# ════════════════════════════════════════
+# Test Summary (Complete)
+# ════════════════════════════════════════
+# NixOS:     PASS
+# Terraform: PASS
+# Ansible:   PASS
+# Overall:   PASS
+# ════════════════════════════════════════
+#
+# ✅ All infrastructure tests passed
+```
+
+#### Comprehensive Validation
+
+**Run Secrets + All Tests:**
+```bash
+just validate-all
+
+# What it does:
+# - Runs validate-secrets (secrets format validation)
+# - Runs test-all (all infrastructure tests)
+# - Provides comprehensive validation summary
+# - Exits on first failure (fail-fast)
+
+# Expected output:
+# ════════════════════════════════════════
+#   Comprehensive Pre-Deployment Validation
+# ════════════════════════════════════════
+#
+# → Validating secrets...
+# ✓ Secrets validated
+#
+# → Running all infrastructure tests...
+# [Test output from test-all]
+#
+# ════════════════════════════════════════
+# Validation Summary
+# ════════════════════════════════════════
+# Secrets:   PASS
+# Tests:     PASS
+# Overall:   PASS
+# ════════════════════════════════════════
+#
+# ✅ Comprehensive validation successful - safe to deploy
+```
+
+### 9.3 How to Interpret Test Results
+
+#### Exit Codes
+
+All test commands follow consistent exit code conventions:
+
+| Exit Code | Meaning | Action |
+|-----------|---------|--------|
+| `0` | All tests passed | Safe to proceed |
+| `1` | One or more tests failed | Fix issues before proceeding |
+| `2` | Error (e.g., Docker not running) | Resolve environment issue |
+
+**Checking exit codes:**
+```bash
+just test-all
+echo $?  # 0 = success, 1 = failure
+
+# Or use in scripts
+if just test-all; then
+    echo "Tests passed"
+else
+    echo "Tests failed" >&2
+    exit 1
+fi
+```
+
+#### Output Format
+
+**Success Indicators:**
+- `✓` - Individual test passed
+- `✅` - All tests in suite passed
+- `PASS` - Test result is success
+
+**Failure Indicators:**
+- `❌` - Test failed
+- `FAIL` - Test result is failure
+- `NOT RUN` - Test was skipped due to earlier failure
+
+**Info Indicators:**
+- `→` - Test is running
+- `⚠️` - Warning (test skipped for valid reason)
+
+#### Test Summary
+
+All test commands provide a summary at the end:
+
+```
+════════════════════════════════════════
+Test Summary (Complete)
+════════════════════════════════════════
+NixOS:     PASS
+Terraform: PASS
+Ansible:   PASS
+Overall:   PASS
+════════════════════════════════════════
+```
+
+**Reading the summary:**
+- **Individual results** show status of each test suite
+- **Overall** shows aggregated result (PASS only if all PASS)
+- **Partial summary** shown if test suite exits early
+
+### 9.4 Debugging Test Failures
+
+When tests fail, follow this debugging workflow:
+
+#### Step 1: Identify Which Test Failed
+
+Look at the test summary or error output:
+
+```
+→ Running NixOS tests...
+❌ NixOS tests failed
+════════════════════════════════════════
+Test Summary (Partial)
+════════════════════════════════════════
+NixOS:     FAIL
+Terraform: NOT RUN
+Ansible:   NOT RUN
+Overall:   FAIL
+════════════════════════════════════════
+```
+
+**Failed test:** NixOS
+
+#### Step 2: Run Failed Test in Isolation
+
+```bash
+# Run just the failed test suite for detailed output
+just test-nixos
+
+# For even more detail, run the underlying command directly
+nix build .#checks.x86_64-linux.xmsi-test --print-build-logs
+```
+
+#### Step 3: Analyze Error Messages
+
+**Common NixOS test errors:**
+
+```
+Error: Test timeout waiting for systemd target
+```
+**Cause:** System failed to boot or service failed to start
+**Solution:** Check systemd unit configuration, review service logs in test output
+
+```
+Error: User 'mi-skam' does not exist
+```
+**Cause:** User creation failed or mkUser.nix not imported correctly
+**Solution:** Verify user module imports, check SOPS secrets decryption
+
+```
+Error: Secret file not found at /run/secrets/mi-skam
+```
+**Cause:** SOPS secrets failed to decrypt
+**Solution:** Check age key configuration, verify secrets file format
+
+**Common Terraform test errors:**
+
+```
+Error: Invalid HCL syntax
+```
+**Cause:** Syntax error in .tf files
+**Solution:** Run `tofu validate` to identify exact location
+
+```
+Error: Plan generation failed: authentication error
+```
+**Cause:** Hetzner API token invalid or missing
+**Solution:** Check `secrets/hetzner.yaml`, verify token is encrypted correctly
+
+**Common Ansible test errors:**
+
+```
+Error: Docker daemon not accessible
+```
+**Cause:** Docker not running or not in PATH
+**Solution:** Start Docker, ensure `docker info` works
+
+```
+TASK [common : Install packages] ... changed: [debian-12]
+... [second run]
+TASK [common : Install packages] ... changed: [debian-12]
+Idempotency test failed
+```
+**Cause:** Task is not idempotent (always reports changed)
+**Solution:** Add `changed_when` condition or use more specific module
+
+#### Step 4: Fix and Re-test
+
+```bash
+# After fixing the issue, re-run the test
+just test-nixos
+
+# If passes, run full suite to ensure fix didn't break other tests
+just test-all
+```
+
+#### Step 5: Verify in Clean Environment
+
+```bash
+# Clean Nix build cache
+nix-collect-garbage
+
+# Re-run tests to verify fix works in clean environment
+just test-all
+```
+
+### 9.5 CI/CD Integration Notes
+
+Tests are designed to run in CI/CD environments with the following considerations:
+
+#### Non-Interactive Execution
+
+**All test commands are non-interactive:**
+- No user prompts
+- No password requests
+- No manual confirmations
+
+**Example:** Safe to run in CI pipelines
+```bash
+# These commands never prompt for input
+just test-all
+just validate-all
+```
+
+#### Clear Exit Codes
+
+**Exit code 0 = success, 1 = failure:**
+```bash
+# CI/CD can check exit code directly
+just test-all || exit 1
+```
+
+#### CI/CD-Friendly Output
+
+**Output characteristics:**
+- Clear section headers (easy to parse)
+- Consistent format (machine-readable)
+- Progress indicators (→, ✓, ❌)
+- Summary at end (test results)
+
+**Example CI/CD integration (GitHub Actions):**
+```yaml
+- name: Run infrastructure tests
+  run: just test-all
+
+- name: Check test results
+  if: failure()
+  run: |
+    echo "Tests failed - check logs above"
+    exit 1
+```
+
+#### Platform Compatibility
+
+**NixOS VM tests:**
+- Only run on `x86_64-linux` (automatically skipped on other platforms)
+- Test output shows skip reason: `⚠️ Skipping NixOS VM tests (only available on x86_64-linux)`
+
+**Ansible Molecule tests:**
+- Require Docker (automatically checks for Docker availability)
+- Skip gracefully if Docker not running
+
+**Terraform tests:**
+- No external dependencies (run on any platform)
+- Use dummy tokens for syntax validation (no API calls)
+
+#### Execution Time Considerations
+
+**Test suite execution times:**
+- `just test-nixos`: ~5 minutes
+- `just test-terraform`: ~10 seconds
+- `just test-ansible`: ~10 minutes
+- `just test-all`: ~15 minutes total
+
+**Optimization for CI/CD:**
+- Run tests in parallel where possible (separate jobs)
+- Cache Nix builds between runs
+- Cache Docker images for Molecule tests
+- Use fast workers for critical path (syntax checks)
+
+**Example parallel execution (GitHub Actions):**
+```yaml
+jobs:
+  test-nix:
+    runs-on: ubuntu-latest
+    steps:
+      - run: just test-nixos
+
+  test-terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - run: just test-terraform
+
+  test-ansible:
+    runs-on: ubuntu-latest
+    steps:
+      - run: just test-ansible
+```
+
+**Total execution time with parallelism:** ~10 minutes (limited by slowest test suite)
+
+---
+
+## 10. Continuous Testing Integration
+
+**Note:** This section describes a future CI/CD integration. The infrastructure tests are designed to be CI/CD-compatible, but automatic pipeline execution is not yet implemented. See Section 9.5 for CI/CD integration considerations.
+
+### 10.1 Future CI/CD Pipeline Architecture
+
+**Planned Pipeline Stages:**
 
 ```
 ┌─────────────────┐
@@ -1896,7 +2385,7 @@ echo "Ansible Role Coverage: $COVERAGE%"
 └─────────────────┘
 ```
 
-### 9.2 Test Triggers
+### 10.2 Planned Test Triggers
 
 #### Trigger: Every Commit (Pre-Push Hook)
 
@@ -2109,7 +2598,7 @@ jobs:
           body: "Automated flake input updates from nightly job"
 ```
 
-### 9.3 Integration with Justfile
+### 10.3 Integration with Justfile
 
 **Unified Test Command:**
 
@@ -2189,7 +2678,7 @@ just pre-commit
 just pre-push
 ```
 
-### 9.4 Test Failure Handling
+### 10.4 Test Failure Handling
 
 **Failure Response Workflow:**
 
@@ -2238,7 +2727,7 @@ Prevent Recurrence
 - **Stage 3 failures**: PR comment, Slack/Discord notification
 - **Stage 4 failures**: PagerDuty alert, email, SMS
 
-### 9.5 Performance Optimization
+### 10.5 Performance Optimization
 
 **Test Execution Time Targets:**
 
@@ -2301,9 +2790,9 @@ jobs:
 
 ---
 
-## 10. Appendix: Quick Reference
+## 11. Appendix: Quick Reference
 
-### 10.1 Common Test Commands
+### 11.1 Common Test Commands
 
 **Nix:**
 ```bash
@@ -2356,7 +2845,7 @@ ansible-playbook playbooks/deploy.yaml --limit test-1.dev.nbg  # Run twice
 cd ansible/roles/common && molecule test
 ```
 
-### 10.2 Test Decision Tree
+### 11.2 Test Decision Tree
 
 ```
 Need to test infrastructure change?
@@ -2386,7 +2875,7 @@ Need to test infrastructure change?
    └─ No → Fix issues, repeat tests
 ```
 
-### 10.3 Troubleshooting Guide
+### 11.3 Troubleshooting Guide
 
 **Problem: nix flake check fails with "path does not exist"**
 - **Cause:** Nix flakes only see git-tracked files
@@ -2412,7 +2901,7 @@ Need to test infrastructure change?
 - **Cause:** VM boot too slow or test waiting for unavailable service
 - **Solution:** Increase timeout or remove problematic service from test
 
-### 10.4 Test Maintenance Checklist
+### 11.4 Test Maintenance Checklist
 
 **Weekly:**
 - [ ] Review failed test reports

@@ -30,6 +30,9 @@ result-*
 *.temp
 *.log
 
+# Just temporary directories
+just-*/
+
 # SSH keys (if any get generated locally)
 *.pem
 *.key

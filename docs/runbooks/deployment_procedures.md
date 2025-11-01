@@ -168,6 +168,11 @@ Use this universal checklist before any deployment. Check off items as you compl
 - [ ] Terraform syntax valid (`just tf-validate`) [Terraform only]
 - [ ] Ansible syntax check passes (`just ansible-syntax-check <playbook>`) [Ansible only]
 
+### Testing
+- [ ] All infrastructure tests passed (`just test-all`)
+- [ ] Test results reviewed (no unexpected failures)
+- [ ] OR: Comprehensive validation completed (`just validate-all`)
+
 ### Dry-Run Testing
 - [ ] Dry-run build succeeded (shows what would be built/changed)
 - [ ] Reviewed dry-run output for unexpected changes

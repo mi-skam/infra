@@ -19,17 +19,17 @@
 # - Dotfiles justfile: ~246 lines, 11 dotfiles recipes (separated concern)
 # - Combined reduction: 20% functional code consolidation via private helpers
 # - Size reduction: 42% reduction in main justfile (582 → ~350 lines via separation)
-
 # Import dotfiles management recipes (optional - won't fail if file missing)
+
 import? 'dotfiles.justfile'
 
 # ============================================================================
 # Utility Recipes
 # ============================================================================
-
 # List all available recipes with descriptions
 #
 # Shows all public recipes (private recipes starting with _ are hidden).
+
 # This is the default command when running 'just' without arguments.
 @default:
     just --list
@@ -37,7 +37,6 @@ import? 'dotfiles.justfile'
 # ============================================================================
 # Validation Recipes (Public & Private Helpers)
 # ============================================================================
-
 # Validate SOPS-encrypted secrets against JSON schemas
 #
 # Runs scripts/validate-secrets.sh (from I2.T2) which validates:
@@ -47,9 +46,94 @@ import? 'dotfiles.justfile'
 # - secrets/pgp-keys.yaml (PGP encryption keys)
 #
 # Returns exit code 0 if all secrets are valid, non-zero on schema violations.
+
 # This should be run before any deployment to catch secret format issues early.
 @validate-secrets:
     scripts/validate-secrets.sh
+
+# Comprehensive pre-deployment validation (secrets + all tests)
+#
+# Executes complete validation workflow combining:
+# 1. Secrets validation - Ensures all SOPS-encrypted secrets are valid
+# 2. All infrastructure tests - Validates Nix, Terraform, and Ansible
+#
+# This is the MASTER validation command that should be run before ANY
+# deployment to production. It ensures both secrets and infrastructure
+# configurations are correct before deployment.
+#
+# Validation gates (in order):
+#   1. Secrets validation (validate-secrets)
+#   2. NixOS VM tests (test-nixos)
+#   3. Terraform validation tests (test-terraform)
+#   4. Ansible Molecule tests (test-ansible)
+#
+# Exit code 0 if all validations pass, 1 if any validation fails.
+#
+# Example usage:
+#   just validate-all                # Run comprehensive validation
+#
+# NOTE: Total execution time is approximately 15 minutes. Use this before
+# production deployments. For faster feedback during development, use
+# individual validation commands:
+#   just validate-secrets  # ~2 seconds
+#   just test-nixos       # ~5 minutes
+#   just test-terraform   # ~10 seconds
+
+# just test-ansible     # ~10 minutes
+@validate-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "════════════════════════════════════════"
+    echo "  Comprehensive Pre-Deployment Validation"
+    echo "════════════════════════════════════════"
+    echo ""
+
+    # Gate 1: Validate secrets
+    echo "→ Validating secrets..."
+    if ! just validate-secrets; then
+        echo "❌ Secrets validation failed" >&2
+        echo "Run 'just validate-secrets' to see details" >&2
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "Validation Summary"
+        echo "════════════════════════════════════════"
+        echo "Secrets:   FAIL"
+        echo "Tests:     NOT RUN"
+        echo "Overall:   FAIL"
+        echo "════════════════════════════════════════"
+        exit 1
+    fi
+    echo "✓ Secrets validated"
+    echo ""
+
+    # Gate 2: Run all infrastructure tests
+    echo "→ Running all infrastructure tests..."
+    if ! just test-all; then
+        echo "❌ Infrastructure tests failed" >&2
+        echo "Run 'just test-all' to see details" >&2
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "Validation Summary"
+        echo "════════════════════════════════════════"
+        echo "Secrets:   PASS"
+        echo "Tests:     FAIL"
+        echo "Overall:   FAIL"
+        echo "════════════════════════════════════════"
+        exit 1
+    fi
+
+    # All validations passed
+    echo ""
+    echo "════════════════════════════════════════"
+    echo "Validation Summary"
+    echo "════════════════════════════════════════"
+    echo "Secrets:   PASS"
+    echo "Tests:     PASS"
+    echo "Overall:   PASS"
+    echo "════════════════════════════════════════"
+    echo ""
+    echo "✅ Comprehensive validation successful - safe to deploy"
 
 # Validate SOPS age private key exists (PRIVATE HELPER)
 #
@@ -62,6 +146,7 @@ import? 'dotfiles.justfile'
 #
 # Called by: tf-apply, tf-plan, tf-destroy, all Terraform recipes
 #
+
 # Returns: Exit code 0 if key found, exit code 1 if missing
 [private]
 _validate-age-key:
@@ -91,6 +176,7 @@ _validate-age-key:
 #
 # Called by: nixos-deploy, darwin-deploy
 #
+
 # Returns: Exit code 0 if clean/staged, exit code 1 if unstaged changes
 [private]
 _validate-git-staged:
@@ -120,6 +206,7 @@ _validate-git-staged:
 #
 # Called by: tf-apply, tf-plan, ansible-inventory-update
 #
+
 # Returns: Exit code 0 if initialized, exit code 1 if not initialized
 [private]
 _validate-terraform-state:
@@ -149,6 +236,7 @@ _validate-terraform-state:
 #
 # Called by: ansible-deploy, ansible-deploy-env, ansible-ping
 #
+
 # Returns: Exit code 0 if valid/current, exit code 1 if inventory missing
 [private]
 _validate-ansible-inventory:
@@ -177,7 +265,6 @@ _validate-ansible-inventory:
 # ============================================================================
 # Nix Operations (System & Home Management)
 # ============================================================================
-
 # Build NixOS system configuration without activating
 #
 # Parameters:
@@ -190,9 +277,10 @@ _validate-ansible-inventory:
 #   just nixos-build xmsi      # Build xmsi desktop configuration
 #   just nixos-build srv-01    # Build srv-01 server configuration
 #
+
 # Use this before nixos-deploy to verify configuration builds successfully.
 @nixos-build host:
-    nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel
+    nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel
 
 # Deploy NixOS system configuration with validation gates
 #
@@ -215,6 +303,7 @@ _validate-ansible-inventory:
 #   just nixos-deploy srv-01 true    # Deploy without confirmation (force)
 #
 # IMPORTANT: Nix flakes require unstaged changes to be added with 'git add'
+
 # before deployment. Unstaged changes will be silently ignored.
 @nixos-deploy host force="":
     #!/usr/bin/env bash
@@ -251,17 +340,17 @@ _validate-ansible-inventory:
     # Gate 4: Dry-run build
     echo ""
     echo "→ Performing dry-run build..."
-    if ! nix build .#nixosConfigurations.{{host}}.config.system.build.toplevel; then
+    if ! nix build .#nixosConfigurations.{{ host }}.config.system.build.toplevel; then
         echo "❌ Dry-run build failed" >&2
         exit 1
     fi
     echo "✓ Dry-run succeeded"
 
     # Gate 5: Confirmation (unless force mode)
-    if [ "{{force}}" != "true" ]; then
+    if [ "{{ force }}" != "true" ]; then
         echo ""
         echo "═══════════════════════════════════════"
-        read -p "Proceed with deployment to {{host}}? [y/N]: " confirmation
+        read -p "Proceed with deployment to {{ host }}? [y/N]: " confirmation
         if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
             echo "Deployment cancelled"
             exit 0
@@ -270,8 +359,8 @@ _validate-ansible-inventory:
 
     # Execute deployment
     echo ""
-    echo "→ Deploying NixOS configuration to {{host}}..."
-    sudo nixos-rebuild switch --flake .#{{host}}
+    echo "→ Deploying NixOS configuration to {{ host }}..."
+    sudo nixos-rebuild switch --flake .#{{ host }}
 
     # Success summary
     echo ""
@@ -282,7 +371,7 @@ _validate-ansible-inventory:
     echo "✓ Git changes staged"
     echo "✓ Syntax validated"
     echo "✓ Dry-run succeeded"
-    echo "✓ Deployed successfully to {{host}}"
+    echo "✓ Deployed successfully to {{ host }}"
 
 # Build Darwin system configuration without activating
 #
@@ -295,9 +384,10 @@ _validate-ansible-inventory:
 # Example usage:
 #   just darwin-build xbook    # Build xbook Darwin configuration
 #
+
 # Use this before darwin-deploy to verify configuration builds successfully.
 @darwin-build host:
-    nix build .#darwinConfigurations.{{host}}.system
+    nix build .#darwinConfigurations.{{ host }}.system
 
 # Deploy Darwin system configuration with validation gates
 #
@@ -320,6 +410,7 @@ _validate-ansible-inventory:
 #   just darwin-deploy xbook true    # Deploy without confirmation (force)
 #
 # IMPORTANT: Nix flakes require unstaged changes to be added with 'git add'
+
 # before deployment. Unstaged changes will be silently ignored.
 @darwin-deploy host force="":
     #!/usr/bin/env bash
@@ -356,17 +447,17 @@ _validate-ansible-inventory:
     # Gate 4: Dry-run build
     echo ""
     echo "→ Performing dry-run build..."
-    if ! nix build .#darwinConfigurations.{{host}}.system; then
+    if ! nix build .#darwinConfigurations.{{ host }}.system; then
         echo "❌ Dry-run build failed" >&2
         exit 1
     fi
     echo "✓ Dry-run succeeded"
 
     # Gate 5: Confirmation (unless force mode)
-    if [ "{{force}}" != "true" ]; then
+    if [ "{{ force }}" != "true" ]; then
         echo ""
         echo "═══════════════════════════════════════"
-        read -p "Proceed with deployment to {{host}}? [y/N]: " confirmation
+        read -p "Proceed with deployment to {{ host }}? [y/N]: " confirmation
         if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
             echo "Deployment cancelled"
             exit 0
@@ -375,8 +466,8 @@ _validate-ansible-inventory:
 
     # Execute deployment
     echo ""
-    echo "→ Deploying Darwin configuration to {{host}}..."
-    darwin-rebuild switch --flake .#{{host}}
+    echo "→ Deploying Darwin configuration to {{ host }}..."
+    darwin-rebuild switch --flake .#{{ host }}
 
     # Success summary
     echo ""
@@ -387,7 +478,7 @@ _validate-ansible-inventory:
     echo "✓ Git changes staged"
     echo "✓ Syntax validated"
     echo "✓ Dry-run succeeded"
-    echo "✓ Deployed successfully to {{host}}"
+    echo "✓ Deployed successfully to {{ host }}"
 
 # Build Home Manager configuration without activating
 #
@@ -401,9 +492,10 @@ _validate-ansible-inventory:
 #   just home-build plumps@xbook    # Build plumps user config on xbook
 #   just home-build mi-skam@xmsi    # Build mi-skam user config on xmsi
 #
+
 # Use this before home-deploy to verify configuration builds successfully.
 @home-build user:
-    home-manager build --flake .#{{user}}
+    home-manager build --flake .#{{ user }}
 
 # Deploy Home Manager configuration
 #
@@ -417,14 +509,14 @@ _validate-ansible-inventory:
 #   just home-deploy plumps@xbook   # Deploy plumps user config on xbook
 #   just home-deploy mi-skam@xmsi   # Deploy mi-skam user config on xmsi
 #
+
 # IMPORTANT: Always run home-build first to test the configuration.
 @home-deploy user:
-    home-manager switch --flake .#{{user}}
+    home-manager switch --flake .#{{ user }}
 
 # ============================================================================
 # Testing Recipes
 # ============================================================================
-
 # Run NixOS VM tests for xmsi and srv-01 configurations
 #
 # Runs nixosTest-based integration tests for NixOS system configurations.
@@ -448,6 +540,7 @@ _validate-ansible-inventory:
 #   just test-nixos                    # Run all NixOS VM tests
 #
 # NOTE: This requires significant system resources (QEMU VMs). Tests are
+
 # automatically skipped on non-x86_64-linux systems.
 @test-nixos:
     #!/usr/bin/env bash
@@ -502,6 +595,7 @@ _validate-ansible-inventory:
 #   just test-terraform    # Run all Terraform tests
 #
 # NOTE: Tests run locally without requiring Hetzner credentials or state file.
+
 # They validate configuration correctness using dummy tokens and -backend=false.
 @test-terraform:
     #!/usr/bin/env bash
@@ -548,6 +642,7 @@ _validate-ansible-inventory:
 #   cd ansible && molecule test -s backup
 #
 # NOTE: Requires Docker to be running. Molecule creates temporary containers
+
 # that are destroyed after tests complete.
 @test-ansible:
     #!/usr/bin/env bash
@@ -608,10 +703,123 @@ _validate-ansible-inventory:
     echo "✅ All Ansible Molecule tests passed"
     echo "════════════════════════════════════════"
 
+# Run all infrastructure tests in sequence
+#
+# Executes comprehensive test suite for entire infrastructure:
+# 1. NixOS VM tests - System configuration validation in isolated VMs
+# 2. Terraform validation tests - Infrastructure module validation
+# 3. Ansible Molecule tests - Role validation in Docker containers
+#
+# Tests run sequentially to ensure consistent resource usage and clear
+# error reporting. Exit code 0 if all tests pass, 1 if any test fails.
+#
+# This is the master test command that should be run before any deployment
+# to production. It validates all infrastructure components in isolation
+# before they are applied to real systems.
+#
+# Example usage:
+#   just test-all                    # Run all infrastructure tests
+#
+# NOTE: Total execution time is approximately 15 minutes. Individual test
+# suites can be run separately for faster feedback during development:
+#   just test-nixos      # ~5 minutes
+#   just test-terraform  # ~10 seconds
+
+# just test-ansible    # ~10 minutes
+@test-all:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    echo "════════════════════════════════════════"
+    echo "  Infrastructure Test Suite"
+    echo "════════════════════════════════════════"
+    echo ""
+    echo "Running all infrastructure tests..."
+    echo ""
+
+    # Track test results
+    NIXOS_RESULT="SKIP"
+    TERRAFORM_RESULT="FAIL"
+    ANSIBLE_RESULT="FAIL"
+
+    # Test 1: NixOS VM tests
+    echo "→ Running NixOS tests..."
+    if just test-nixos; then
+        NIXOS_RESULT="PASS"
+        echo "✓ NixOS tests passed"
+    else
+        NIXOS_RESULT="FAIL"
+        echo "❌ NixOS tests failed" >&2
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "Test Summary (Partial)"
+        echo "════════════════════════════════════════"
+        echo "NixOS:     $NIXOS_RESULT"
+        echo "Terraform: NOT RUN"
+        echo "Ansible:   NOT RUN"
+        echo "Overall:   FAIL"
+        echo "════════════════════════════════════════"
+        exit 1
+    fi
+    echo ""
+
+    # Test 2: Terraform validation tests
+    echo "→ Running Terraform tests..."
+    if just test-terraform; then
+        TERRAFORM_RESULT="PASS"
+        echo "✓ Terraform tests passed"
+    else
+        TERRAFORM_RESULT="FAIL"
+        echo "❌ Terraform tests failed" >&2
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "Test Summary (Partial)"
+        echo "════════════════════════════════════════"
+        echo "NixOS:     $NIXOS_RESULT"
+        echo "Terraform: $TERRAFORM_RESULT"
+        echo "Ansible:   NOT RUN"
+        echo "Overall:   FAIL"
+        echo "════════════════════════════════════════"
+        exit 1
+    fi
+    echo ""
+
+    # Test 3: Ansible Molecule tests
+    echo "→ Running Ansible tests..."
+    if just test-ansible; then
+        ANSIBLE_RESULT="PASS"
+        echo "✓ Ansible tests passed"
+    else
+        ANSIBLE_RESULT="FAIL"
+        echo "❌ Ansible tests failed" >&2
+        echo ""
+        echo "════════════════════════════════════════"
+        echo "Test Summary (Complete)"
+        echo "════════════════════════════════════════"
+        echo "NixOS:     $NIXOS_RESULT"
+        echo "Terraform: $TERRAFORM_RESULT"
+        echo "Ansible:   $ANSIBLE_RESULT"
+        echo "Overall:   FAIL"
+        echo "════════════════════════════════════════"
+        exit 1
+    fi
+    echo ""
+
+    # All tests passed
+    echo "════════════════════════════════════════"
+    echo "Test Summary (Complete)"
+    echo "════════════════════════════════════════"
+    echo "NixOS:     $NIXOS_RESULT"
+    echo "Terraform: $TERRAFORM_RESULT"
+    echo "Ansible:   $ANSIBLE_RESULT"
+    echo "Overall:   PASS"
+    echo "════════════════════════════════════════"
+    echo ""
+    echo "✅ All infrastructure tests passed"
+
 # ============================================================================
 # Secrets Management (Private Helpers)
 # ============================================================================
-
 # Extract Hetzner Cloud API token from SOPS-encrypted secrets (PRIVATE HELPER)
 #
 # This private helper consolidates SOPS decryption logic used by 8 Terraform/Ansible
@@ -627,6 +835,7 @@ _validate-ansible-inventory:
 # Called by: tf-plan, tf-apply, tf-destroy, tf-destroy-target, tf-import,
 #           tf-output, ansible-inventory-update, ssh
 #
+
 # Returns: Hetzner API token string on stdout, exits 1 on any failure
 [private]
 _get-hcloud-token:
@@ -639,7 +848,6 @@ _get-hcloud-token:
 # ============================================================================
 # Terraform / OpenTofu Operations
 # ============================================================================
-
 # Initialize OpenTofu/Terraform working directory
 #
 # Downloads provider plugins (Hetzner Cloud provider) and initializes backend.
@@ -648,6 +856,7 @@ _get-hcloud-token:
 # Safe to run multiple times (idempotent). Run this after:
 # - Cloning the repository for the first time
 # - Adding new providers to providers.tf
+
 # - Upgrading provider versions
 @tf-init:
     cd terraform && tofu init
@@ -662,6 +871,7 @@ _get-hcloud-token:
 # - 1: Error occurred during planning
 # - 2: Plan succeeded with changes to apply
 #
+
 # Always run this before tf-apply to preview changes.
 @tf-plan:
     #!/usr/bin/env bash
@@ -693,6 +903,7 @@ _get-hcloud-token:
 #   just tf-apply           # Apply with confirmation
 #   just tf-apply true      # Apply without confirmation (force)
 #
+
 # IMPORTANT: Always review the plan output before confirming deployment.
 @tf-apply force="":
     #!/usr/bin/env bash
@@ -747,7 +958,7 @@ _get-hcloud-token:
     echo "═══════════════════════════════════════"
 
     # Gate 6: Confirmation (unless force mode)
-    if [ "{{force}}" != "true" ]; then
+    if [ "{{ force }}" != "true" ]; then
         echo ""
         read -p "Proceed with infrastructure deployment? [y/N]: " confirmation
         if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
@@ -787,6 +998,7 @@ _get-hcloud-token:
 # - Tearing down test/dev environments completely
 # - Emergency rollback scenarios
 #
+
 # For targeted resource removal, use tf-destroy-target instead.
 @tf-destroy:
     #!/usr/bin/env bash
@@ -808,11 +1020,12 @@ _get-hcloud-token:
 #   cd terraform && tofu state list
 #
 # This is safer than tf-destroy for removing individual resources while
+
 # keeping the rest of the infrastructure intact. Still prompts for confirmation.
 @tf-destroy-target target:
     #!/usr/bin/env bash
     set -euo pipefail
-    export TF_VAR_hcloud_token="$(just _get-hcloud-token)" && cd terraform && tofu destroy -target={{target}}
+    export TF_VAR_hcloud_token="$(just _get-hcloud-token)" && cd terraform && tofu destroy -target={{ target }}
 
 # Import existing Hetzner Cloud resources into Terraform state
 #
@@ -827,6 +1040,7 @@ _get-hcloud-token:
 # - Adding manually-created resources to Terraform tracking
 #
 # The import.sh script is idempotent - safe to run multiple times.
+
 # Resources already in state will be skipped with a warning.
 @tf-import:
     #!/usr/bin/env bash
@@ -845,7 +1059,8 @@ _get-hcloud-token:
 #   cd terraform && tofu output -json
 #
 # For specific output value:
-#   cd terraform && tofu output -raw ansible_inventory
+
+# cd terraform && tofu output -raw ansible_inventory
 @tf-output:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -872,6 +1087,7 @@ _get-hcloud-token:
 #   just tf-drift-check    # Check for drift
 #
 # This is safe to run anytime - it does NOT modify infrastructure.
+
 # For scheduled drift detection in CI/CD, see Iteration 7 plan.
 @tf-drift-check:
     terraform/drift-detection.sh
@@ -890,6 +1106,7 @@ _get-hcloud-token:
 # The generated inventory includes:
 # - Server hostnames, IPv4 addresses, private IPs
 # - Environment groupings (prod, dev)
+
 # - Ansible connection variables (ansible_host, ansible_user)
 @ansible-inventory-update:
     #!/usr/bin/env bash
@@ -900,7 +1117,6 @@ _get-hcloud-token:
 # ============================================================================
 # Ansible Configuration Management
 # ============================================================================
-
 # Test SSH connectivity to all managed servers
 #
 # Uses Ansible's ping module (not ICMP ping) to verify:
@@ -914,6 +1130,7 @@ _get-hcloud-token:
 # - Server unreachable (firewall, wrong IP)
 # - Python not installed on remote system
 #
+
 # Run ansible-inventory-update first if inventory is stale.
 @ansible-ping:
     cd ansible && ansible all -m ping
@@ -942,6 +1159,7 @@ _get-hcloud-token:
 #   just ansible-deploy deploy true     # Deploy without confirmation (force)
 #
 # For environment-specific deployment, use ansible-deploy-env instead.
+
 # IMPORTANT: Always review the dry-run output before confirming deployment.
 @ansible-deploy playbook force="":
     #!/usr/bin/env bash
@@ -970,7 +1188,7 @@ _get-hcloud-token:
     # Gate 3: Syntax validation
     echo "→ Validating playbook syntax..."
     cd ansible
-    if ! ansible-playbook playbooks/{{playbook}}.yaml --syntax-check; then
+    if ! ansible-playbook playbooks/{{ playbook }}.yaml --syntax-check; then
         echo "❌ Playbook syntax validation failed" >&2
         exit 1
     fi
@@ -980,14 +1198,14 @@ _get-hcloud-token:
     echo ""
     echo "→ Performing dry-run (showing changes)..."
     echo "═══════════════════════════════════════"
-    if ! ansible-playbook playbooks/{{playbook}}.yaml --check --diff; then
+    if ! ansible-playbook playbooks/{{ playbook }}.yaml --check --diff; then
         echo "❌ Dry-run failed" >&2
         exit 1
     fi
     echo "═══════════════════════════════════════"
 
     # Gate 5: Confirmation (unless force mode)
-    if [ "{{force}}" != "true" ]; then
+    if [ "{{ force }}" != "true" ]; then
         echo ""
         read -p "Proceed with deployment to all hosts? [y/N]: " confirmation
         if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
@@ -998,8 +1216,8 @@ _get-hcloud-token:
 
     # Execute deployment
     echo ""
-    echo "→ Deploying playbook {{playbook}} to all hosts..."
-    ansible-playbook playbooks/{{playbook}}.yaml
+    echo "→ Deploying playbook {{ playbook }} to all hosts..."
+    ansible-playbook playbooks/{{ playbook }}.yaml
 
     # Success summary
     echo ""
@@ -1036,13 +1254,14 @@ _get-hcloud-token:
 #   just ansible-deploy-env dev bootstrap         # Deploy with confirmation
 #   just ansible-deploy-env prod deploy true      # Deploy without confirmation (force)
 #
+
 # IMPORTANT: Always review the dry-run output before confirming deployment.
 @ansible-deploy-env env playbook force="":
     #!/usr/bin/env bash
     set -euo pipefail
 
     echo "═══════════════════════════════════════"
-    echo "Ansible Deployment Validation ({{env}})"
+    echo "Ansible Deployment Validation ({{ env }})"
     echo "═══════════════════════════════════════"
     echo ""
 
@@ -1064,7 +1283,7 @@ _get-hcloud-token:
     # Gate 3: Syntax validation
     echo "→ Validating playbook syntax..."
     cd ansible
-    if ! ansible-playbook playbooks/{{playbook}}.yaml --syntax-check; then
+    if ! ansible-playbook playbooks/{{ playbook }}.yaml --syntax-check; then
         echo "❌ Playbook syntax validation failed" >&2
         exit 1
     fi
@@ -1072,18 +1291,18 @@ _get-hcloud-token:
 
     # Gate 4: Dry-run with change preview
     echo ""
-    echo "→ Performing dry-run (showing changes for {{env}})..."
+    echo "→ Performing dry-run (showing changes for {{ env }})..."
     echo "═══════════════════════════════════════"
-    if ! ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}} --check --diff; then
+    if ! ansible-playbook playbooks/{{ playbook }}.yaml --limit {{ env }} --check --diff; then
         echo "❌ Dry-run failed" >&2
         exit 1
     fi
     echo "═══════════════════════════════════════"
 
     # Gate 5: Confirmation (unless force mode)
-    if [ "{{force}}" != "true" ]; then
+    if [ "{{ force }}" != "true" ]; then
         echo ""
-        read -p "Proceed with deployment to {{env}} environment? [y/N]: " confirmation
+        read -p "Proceed with deployment to {{ env }} environment? [y/N]: " confirmation
         if [ "$confirmation" != "yes" ] && [ "$confirmation" != "y" ] && [ "$confirmation" != "Y" ]; then
             echo "Deployment cancelled"
             exit 0
@@ -1092,8 +1311,8 @@ _get-hcloud-token:
 
     # Execute deployment
     echo ""
-    echo "→ Deploying playbook {{playbook}} to {{env}} environment..."
-    ansible-playbook playbooks/{{playbook}}.yaml --limit {{env}}
+    echo "→ Deploying playbook {{ playbook }} to {{ env }} environment..."
+    ansible-playbook playbooks/{{ playbook }}.yaml --limit {{ env }}
 
     # Success summary
     echo ""
@@ -1104,7 +1323,7 @@ _get-hcloud-token:
     echo "✓ Inventory validated"
     echo "✓ Syntax validated"
     echo "✓ Dry-run succeeded"
-    echo "✓ Deployed successfully to {{env}}"
+    echo "✓ Deployed successfully to {{ env }}"
 
 # Display Ansible inventory in JSON format
 #
@@ -1119,6 +1338,7 @@ _get-hcloud-token:
 # - Checking variable precedence
 # - Validating inventory after ansible-inventory-update
 #
+
 # For YAML format, add --yaml flag manually.
 @ansible-inventory:
     cd ansible && ansible-inventory --list
@@ -1137,9 +1357,10 @@ _get-hcloud-token:
 # - Pipes, redirects, and shell variables won't work
 # - For complex commands, write a playbook instead
 #
+
 # For targeting specific hosts, use: cd ansible && ansible <pattern> -a "command"
 @ansible-cmd command:
-    cd ansible && ansible all -a "{{command}}"
+    cd ansible && ansible all -a "{{ command }}"
 
 # SSH into a Hetzner server by name, or list available servers
 #
@@ -1158,20 +1379,21 @@ _get-hcloud-token:
 # Requirements:
 # - SSH key at ~/.ssh/homelab/hetzner (private key)
 # - Server must be in Terraform state (run tf-apply first)
+
 # - Connects as root user (adjust if using different user)
 @ssh server:
     #!/usr/bin/env bash
     set -euo pipefail
     export TF_VAR_hcloud_token="$(just _get-hcloud-token)"
     cd terraform
-    if [ -z "{{server}}" ]; then
+    if [ -z "{{ server }}" ]; then
         echo "Available servers:"
         tofu output -json servers | jq -r '.[] | "  → \(.name) (\(.ipv4))"'
         exit 0
     fi
-    IP=$(tofu output -json servers | jq -r '.[] | select(.name == "{{server}}") | .ipv4')
+    IP=$(tofu output -json servers | jq -r '.[] | select(.name == "{{ server }}") | .ipv4')
     if [ -z "$IP" ]; then
-        echo "Error: Server '{{server}}' not found"
+        echo "Error: Server '{{ server }}' not found"
         echo "Available servers:"
         tofu output -json servers | jq -r '.[] | "  → \(.name) (\(.ipv4))"'
         exit 1
