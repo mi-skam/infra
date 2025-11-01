@@ -1,0 +1,213 @@
+{
+  "dashboard": {
+    "uid": "system-metrics",
+    "title": "System Metrics",
+    "description": "Detailed system performance metrics per host",
+    "tags": ["system", "performance", "metrics"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "15s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "timeseries",
+        "title": "CPU Usage",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "100 - (avg by(instance) (irate(node_cpu_seconds_total{mode=\"idle\",instance=~\"$instance\"}[5m])) * 100)",
+            "refId": "A",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["last", "max"],
+            "displayMode": "table",
+            "placement": "right"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "fillOpacity": 10,
+              "spanNulls": false
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "type": "timeseries",
+        "title": "Memory Usage",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "(node_memory_MemTotal_bytes{instance=~\"$instance\"} - node_memory_MemAvailable_bytes{instance=~\"$instance\"}) / node_memory_MemTotal_bytes{instance=~\"$instance\"} * 100",
+            "refId": "A",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["last", "max"],
+            "displayMode": "table",
+            "placement": "right"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "fillOpacity": 10,
+              "spanNulls": false
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "type": "timeseries",
+        "title": "Disk Usage",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "(node_filesystem_size_bytes{mountpoint=\"/\",instance=~\"$instance\"} - node_filesystem_avail_bytes{mountpoint=\"/\",instance=~\"$instance\"}) / node_filesystem_size_bytes{mountpoint=\"/\",instance=~\"$instance\"} * 100",
+            "refId": "A",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["last", "max"],
+            "displayMode": "table",
+            "placement": "right"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "min": 0,
+            "max": 100,
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "fillOpacity": 10,
+              "spanNulls": false
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {"value": 0, "color": "green"},
+                {"value": 85, "color": "red"}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "type": "timeseries",
+        "title": "Network Throughput",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "targets": [
+          {
+            "expr": "irate(node_network_receive_bytes_total{device!~\"lo|veth.*\",instance=~\"$instance\"}[5m])",
+            "refId": "A",
+            "legendFormat": "{{instance}} RX"
+          },
+          {
+            "expr": "irate(node_network_transmit_bytes_total{device!~\"lo|veth.*\",instance=~\"$instance\"}[5m])",
+            "refId": "B",
+            "legendFormat": "{{instance}} TX"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["last", "max"],
+            "displayMode": "table",
+            "placement": "right"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "Bps",
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "fillOpacity": 10,
+              "spanNulls": false
+            }
+          }
+        }
+      },
+      {
+        "id": 5,
+        "type": "timeseries",
+        "title": "Load Average",
+        "gridPos": {"x": 0, "y": 16, "w": 24, "h": 8},
+        "targets": [
+          {
+            "expr": "node_load1{instance=~\"$instance\"}",
+            "refId": "A",
+            "legendFormat": "{{instance}} 1m"
+          },
+          {
+            "expr": "node_load5{instance=~\"$instance\"}",
+            "refId": "B",
+            "legendFormat": "{{instance}} 5m"
+          },
+          {
+            "expr": "node_load15{instance=~\"$instance\"}",
+            "refId": "C",
+            "legendFormat": "{{instance}} 15m"
+          }
+        ],
+        "options": {
+          "legend": {
+            "calcs": ["last", "max"],
+            "displayMode": "table",
+            "placement": "right"
+          }
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {"mode": "palette-classic"},
+            "custom": {
+              "fillOpacity": 10,
+              "spanNulls": false
+            }
+          }
+        }
+      }
+    ],
+    "templating": {
+      "list": [
+        {
+          "name": "instance",
+          "type": "query",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "query": "label_values(up, instance)",
+          "multi": true,
+          "includeAll": true,
+          "allValue": ".*",
+          "current": {
+            "selected": true,
+            "text": "All",
+            "value": "$__all"
+          },
+          "refresh": 1
+        }
+      ]
+    }
+  }
+}

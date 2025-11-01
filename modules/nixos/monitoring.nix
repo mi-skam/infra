@@ -255,7 +255,29 @@
           url = "http://localhost:3100";
         }
       ];
+
+      dashboards.settings = {
+        apiVersion = 1;
+        providers = [
+          {
+            name = "Infrastructure Dashboards";
+            type = "file";
+            options.path = "/etc/grafana-dashboards";
+            disableDeletion = false;
+            updateIntervalSeconds = 30;
+            allowUiUpdates = true;
+            editable = true;
+          }
+        ];
+      };
     };
+  };
+
+  # Copy dashboard files to /etc/grafana-dashboards
+  environment.etc = {
+    "grafana-dashboards/infra-overview.json".source = ./monitoring/dashboards/infra-overview.json;
+    "grafana-dashboards/system-metrics.json".source = ./monitoring/dashboards/system-metrics.json;
+    "grafana-dashboards/deployment-metrics.json".source = ./monitoring/dashboards/deployment-metrics.json;
   };
 
   # Loki - Log Aggregation

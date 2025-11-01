@@ -1117,6 +1117,72 @@ All alert rules are defined in Prometheus configuration. Alert severity levels:
 3. **Search logs:** Navigate to Explore → Loki, use query `{host="mail-1"} |= "error"`
 4. **View alerts:** Navigate to Alerting → Alert Rules
 
+#### 10.1.5. Dashboard Import Procedures
+
+**Declarative Import (Recommended):**
+
+Dashboards are automatically imported into Grafana when the monitoring module is deployed via NixOS rebuild:
+
+```bash
+# Deploy monitoring stack with dashboards to srv-01
+sudo nixos-rebuild switch --flake .#srv-01
+```
+
+**How it works:**
+1. Dashboard JSON files are stored in `modules/nixos/monitoring/dashboards/`
+2. NixOS copies these files to `/etc/grafana-dashboards/` during system activation
+3. Grafana's provisioning system automatically detects and imports dashboards on startup
+4. Dashboard provider is configured with 30-second update interval (changes detected automatically)
+
+**Dashboard Locations:**
+- Source files: `modules/nixos/monitoring/dashboards/{infra-overview,system-metrics,deployment-metrics}.json`
+- Deployed files: `/etc/grafana-dashboards/` on srv-01
+- Grafana provisioning config: `modules/nixos/monitoring.nix` (lines 259-272)
+
+**Dashboard URLs:**
+- Infrastructure Overview: `http://srv-01:3000/d/infra-overview/infrastructure-overview`
+- System Metrics: `http://srv-01:3000/d/system-metrics/system-metrics`
+- Deployment Metrics: `http://srv-01:3000/d/deployment-metrics/deployment-metrics`
+
+**Manual Import (Alternative):**
+
+If you need to import a dashboard manually or test changes before committing:
+
+1. Navigate to Grafana UI: `http://srv-01:3000`
+2. Login with admin credentials
+3. Click **Dashboards** → **New** → **Import**
+4. Upload dashboard JSON file or paste JSON content
+5. Select **Prometheus** datasource (should be pre-selected)
+6. Click **Import**
+
+**Updating Dashboards:**
+
+For declarative dashboards (provisioned via NixOS):
+1. Edit the JSON file in `modules/nixos/monitoring/dashboards/`
+2. Stage changes with `git add modules/nixos/monitoring/dashboards/`
+3. Deploy to srv-01: `sudo nixos-rebuild switch --flake .#srv-01`
+4. Grafana will detect and reload the dashboard within 30 seconds
+
+For manual dashboards (imported via UI):
+1. Edit dashboard in Grafana UI
+2. Save changes (Dashboard Settings → Save)
+3. Export JSON: Dashboard Settings → JSON Model → Copy to Clipboard
+4. Save to file for version control (optional but recommended)
+
+**Dashboard Refresh Settings:**
+- Infrastructure Overview: 30 seconds (configured in JSON)
+- System Metrics: 15 seconds (matches Prometheus scrape interval)
+- Deployment Metrics: 30 seconds (placeholder dashboard)
+
+**Troubleshooting:**
+
+If dashboards don't appear after deployment:
+1. Check Grafana logs: `sudo journalctl -u grafana -n 100`
+2. Verify dashboard files exist: `ls -la /etc/grafana-dashboards/`
+3. Validate JSON syntax: `jq . /etc/grafana-dashboards/infra-overview.json`
+4. Check Grafana provisioning config: Configuration → Data sources → Dashboards (in UI)
+5. Restart Grafana service: `sudo systemctl restart grafana`
+
 ### 10.2. Alert Response Procedures
 
 **ServiceDown Alert:**

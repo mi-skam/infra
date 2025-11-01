@@ -1,0 +1,57 @@
+{
+  "dashboard": {
+    "uid": "deployment-metrics",
+    "title": "Deployment Metrics",
+    "description": "Placeholder for deployment performance metrics (requires instrumentation)",
+    "tags": ["deployment", "ci-cd", "placeholder"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "text",
+        "title": "NixOS Rebuild Duration",
+        "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+        "options": {
+          "mode": "markdown",
+          "content": "## NixOS Rebuild Duration\n\n**Status:** Not yet implemented\n\n**Description:** This panel will track the duration of `nixos-rebuild` operations across all NixOS systems (srv-01, xmsi).\n\n**Required Instrumentation:**\n- Prometheus Pushgateway deployment\n- Justfile wrapper for `nixos-rebuild` that measures execution time\n- Metrics pushed to Pushgateway with labels: `system`, `operation`, `result`\n\n**Target Metric:**\n```\nnixos_rebuild_duration_seconds{system=\"srv-01\", operation=\"switch\", result=\"success\"}\n```\n\n**Reference:** See section 4.3 of `docs/monitoring_plan.md` for full specifications."
+        }
+      },
+      {
+        "id": 2,
+        "type": "text",
+        "title": "Ansible Playbook Duration",
+        "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+        "options": {
+          "mode": "markdown",
+          "content": "## Ansible Playbook Duration\n\n**Status:** Not yet implemented\n\n**Description:** This panel will track the duration of Ansible playbook runs across all managed VPS (mail-1, syncthing-1, test-1).\n\n**Required Instrumentation:**\n- Prometheus Pushgateway deployment\n- Justfile wrapper for Ansible commands that measures execution time\n- Metrics pushed to Pushgateway with labels: `playbook`, `environment`, `result`\n\n**Target Metric:**\n```\nansible_playbook_duration_seconds{playbook=\"deploy\", environment=\"prod\", result=\"success\"}\n```\n\n**Reference:** See section 4.3 of `docs/monitoring_plan.md` for full specifications."
+        }
+      },
+      {
+        "id": 3,
+        "type": "text",
+        "title": "Terraform Apply Duration",
+        "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+        "options": {
+          "mode": "markdown",
+          "content": "## Terraform Apply Duration\n\n**Status:** Not yet implemented\n\n**Description:** This panel will track the duration of OpenTofu/Terraform apply operations for Hetzner infrastructure changes.\n\n**Required Instrumentation:**\n- Prometheus Pushgateway deployment\n- Justfile wrapper for `tofu apply` that measures execution time\n- Metrics pushed to Pushgateway with labels: `operation`, `result`, `resources_changed`\n\n**Target Metric:**\n```\nterraform_apply_duration_seconds{operation=\"apply\", result=\"success\"}\n```\n\n**Reference:** See section 4.3 of `docs/monitoring_plan.md` for full specifications."
+        }
+      },
+      {
+        "id": 4,
+        "type": "text",
+        "title": "Deployment Success Rate",
+        "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+        "options": {
+          "mode": "markdown",
+          "content": "## Deployment Success Rate\n\n**Status:** Not yet implemented\n\n**Description:** This panel will show the success rate of all deployment operations over time (NixOS, Ansible, Terraform).\n\n**Required Instrumentation:**\n- Prometheus Pushgateway deployment\n- All justfile commands instrumented to push success/failure metrics\n- PromQL query to calculate success rate: `sum(rate(deployment_total{result=\"success\"}[5m])) / sum(rate(deployment_total[5m]))`\n\n**Target Metrics:**\n```\ndeployment_total{type=\"nixos\", result=\"success\"}\ndeployment_total{type=\"ansible\", result=\"failure\"}\ndeployment_total{type=\"terraform\", result=\"success\"}\n```\n\n**Reference:** See section 4.3 of `docs/monitoring_plan.md` for full specifications."
+        }
+      }
+    ],
+    "templating": {
+      "list": []
+    }
+  }
+}
