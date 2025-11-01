@@ -17,6 +17,7 @@ let
     hcloud # Hetzner Cloud CLI
     jq # JSON processing for scripts
     just # Task runner
+    plantuml # Diagram generation and validation
     python311 # Python for Molecule testing
     python311Packages.pip
     python311Packages.virtualenv
@@ -93,6 +94,7 @@ pkgs.mkShell {
     echo "  • hcloud         - Hetzner Cloud CLI"
     echo "  • just           - Task runner (see justfile)"
     echo "  • sops/age       - Secrets management"
+    echo "  • plantuml       - Diagram generation and validation"
     echo ""
     echo "Common tasks (use 'just' to see all):"
     echo "  just tf-plan              # Preview infrastructure changes"
