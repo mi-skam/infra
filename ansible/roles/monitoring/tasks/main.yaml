@@ -85,6 +85,21 @@
   tags: [monitoring, firewall, node_exporter]
 
 # Promtail installation
+- name: Install unzip utility for promtail extraction (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: unzip
+    state: present
+    update_cache: true
+  when: ansible_os_family == "Debian"
+  tags: [monitoring, install, promtail]
+
+- name: Install unzip utility for promtail extraction (RedHat)
+  ansible.builtin.dnf:
+    name: unzip
+    state: present
+  when: ansible_os_family == "RedHat"
+  tags: [monitoring, install, promtail]
+
 - name: Create promtail system group
   ansible.builtin.group:
     name: "{{ promtail_group }}"
@@ -96,6 +111,7 @@
   ansible.builtin.user:
     name: "{{ promtail_user }}"
     group: "{{ promtail_group }}"
+    groups: "{{ 'adm,systemd-journal' if ansible_os_family == 'Debian' else 'systemd-journal' }}"
     system: true
     shell: /usr/sbin/nologin
     create_home: false

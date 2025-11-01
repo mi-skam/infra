@@ -1,0 +1,12 @@
+---
+# Monitoring agent deployment playbook
+# Deploys node_exporter and Promtail to target systems
+# Usage: ansible-playbook playbooks/monitoring.yaml [--check] [--limit test-1.dev.nbg]
+
+- name: Deploy monitoring agents
+  hosts: dev
+  become: true
+  gather_facts: true
+
+  roles:
+    - monitoring
