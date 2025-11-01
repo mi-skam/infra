@@ -25,8 +25,8 @@
     LC_NUMERIC = "de_DE.UTF-8";
     LC_PAPER = "de_DE.UTF-8";
     LC_TELEPHONE = "de_DE.UTF-8";
-    LC_TIME = "de_DE.UTF-8";
-  };
+    LC_TIME = "de_DE.UTF-8"
+    # Intentional syntax error: missing closing brace for testing
 
   # Add home-manager to system packages for remote deployment
   environment.systemPackages = with inputs.home-manager.packages.x86_64-linux; [
