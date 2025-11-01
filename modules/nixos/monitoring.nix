@@ -141,10 +141,19 @@
     alertmanager = {
       enable = true;
       port = 9093;
+      checkConfig = false;  # External credentials won't be visible to amtool validation
+
+      # Environment file for secret injection via envsubst
+      environmentFile = pkgs.writeText "alertmanager-env" ''
+        ALERT_EMAIL_TO=$(cat ${config.sops.secrets."monitoring/alertmanager_email_to".path})
+        ALERT_SMTP_HOST=$(cat ${config.sops.secrets."monitoring/alertmanager_smtp_host".path})
+        ALERT_SMTP_FROM=$(cat ${config.sops.secrets."monitoring/alertmanager_smtp_from".path})
+      '';
+
       configuration = {
         global = {
-          smtp_smarthost = "localhost:25";
-          smtp_from = "alertmanager@srv-01.dev.zz";
+          smtp_smarthost = "$ALERT_SMTP_HOST";
+          smtp_from = "$ALERT_SMTP_FROM";
         };
         route = {
           receiver = "default-email";
@@ -173,7 +182,7 @@
           {
             name = "default-email";
             email_configs = [{
-              to = "operator@example.com";
+              to = "$ALERT_EMAIL_TO";
               headers = {
                 Subject = "[INFRA] {{ .GroupLabels.alertname }} - {{ .GroupLabels.environment }}";
               };
@@ -182,7 +191,7 @@
           {
             name = "critical-email";
             email_configs = [{
-              to = "operator@example.com";
+              to = "$ALERT_EMAIL_TO";
               headers = {
                 Subject = "[CRITICAL] {{ .GroupLabels.alertname }} - {{ .GroupLabels.environment }}";
               };
@@ -191,7 +200,7 @@
           {
             name = "warning-email";
             email_configs = [{
-              to = "operator@example.com";
+              to = "$ALERT_EMAIL_TO";
               headers = {
                 Subject = "[WARNING] {{ .GroupLabels.alertname }} - {{ .GroupLabels.environment }}";
               };
